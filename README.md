@@ -1,5 +1,7 @@
 # CloneFest-Week-3
 
+# PROBLEM STATEMENT
+
 CloneFest 2025 — Reimagining a C-based Minigolf Classic
 Title
 Introductory Challenge: Porting a 3D Minigolf Asset to the Web
@@ -58,3 +60,82 @@ Persistent Score: Extend the game state to track and display a total score acros
 
 
 
+# Team Member Roles & Responsibilities
+## Person 1: The UI & Scene Architect
+
+  Project Requirements: #1 (Scene & Asset Rendering) and #5 (Camera System).
+
+  Tasks:
+
+  Set up the foundational Three.js scene (renderer, camera, basic lighting).
+
+  Create the HTML structure for the game's user interface.
+
+  Implement the OrbitControls for the interactive camera.
+
+  Add any styling and visual flair using Tailwind CSS to make the UI look clean and modern.
+
+## Person 2: The Game Logic & Physics Engineer
+
+  Project Requirements: #2 (Basic Physics & Interaction) and #4 (Player Controls).
+
+  Tasks:
+
+  Implement the simplified physics model for the golf ball (velocity, friction).
+
+  Develop the core user input mechanism (mouse events) to control the shot.
+
+  Create the aiming and power control system with visual feedback (the drag line and power indicator).
+
+  Implement the goal detection system to see when the ball is in the hole.
+
+## Person 3: The Backend & Level Manager
+
+  Project Requirements: #3 (Core Gameplay & State Management) and the Bonus Objective (Level Management & Persistent Score).
+
+  Tasks:
+
+  Integrate and configure Firebase for user authentication and Firestore.
+
+  Write the functions to save and load the totalScore from the Firestore database.
+
+  Manage the game's state (current hole, total score, strokes) and implement the logic for transitioning between levels.
+
+  Implement the level data for all three holes, including the more complex terrain for the bonus level.
+
+## Suggested 5-Day Timeline
+Day 1: Setup & Initialization
+
+  All: Get a copy of the base code.
+
+  Person 1: Focus on getting a basic Three.js scene running with the camera and a single object (like the ground or golfBall).
+
+  Person 2: Work on the physics update() loop. Get the golf ball moving based on a predefined velocity and apply friction.
+
+  Person 3: Set up the Firebase boilerplate, authenticate the user with the provided token, and verify that the userId is being logged correctly.
+
+Day 2: Core Features
+
+  Person 1: Build out the complete HTML UI and link it to the game state variables (e.g., update strokesText.textContent = strokes).
+
+  Person 2: Implement the onMouseDown, onMouseMove, and onMouseUp events to calculate the shot vector and power. Get the dragLine and powerIndicator to appear and function correctly.
+
+  Person 3: Implement the saveScore() and loadScore() functions to read from and write to Firestore.
+
+Day 3: Integration
+
+  Person 1 & Person 2: Merge the user input from Person 2 into the UI and scene from Person 1. The onMouseUp event should now trigger the ball's movement and update the stroke count in the UI.
+
+  Person 3: Create the levelData array and the loadHole(holeNum) function. Connect the Next Hole button to this function.
+
+Day 4: Polish & Bonus
+
+  Person 1: Refine UI styling and ensure the page is fully responsive.
+
+  Person 2: Fine-tune the physics, making the ball feel just right. Implement the hole detection logic and trigger the Hole Completed! message.
+
+  Person 3: Add the third level's data to the levelData array and ensure the level transition works smoothly. Make sure the total score is updated and saved to Firestore upon hole completion.
+
+Day 5: Final Review & Debugging
+
+All: Combine all the code into the final single file. Play the game together, test all levels, and debug any issues that arise. Ensure all project requirements are met and the game is stable.
