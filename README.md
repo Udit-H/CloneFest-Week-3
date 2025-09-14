@@ -104,7 +104,7 @@ Persistent Score: Extend the game state to track and display a total score acros
   Implement the level data for all three holes, including the more complex terrain for the bonus level.
 
 ## Suggested 5-Day Timeline
-Day 1: Setup & Initialization
+### Day 1: Setup & Initialization
 
   All: Get a copy of the base code.
 
@@ -114,7 +114,7 @@ Day 1: Setup & Initialization
 
   Person 3: Set up the Firebase boilerplate, authenticate the user with the provided token, and verify that the userId is being logged correctly.
 
-Day 2: Core Features
+### Day 2: Core Features
 
   Person 1: Build out the complete HTML UI and link it to the game state variables (e.g., update strokesText.textContent = strokes).
 
@@ -122,13 +122,13 @@ Day 2: Core Features
 
   Person 3: Implement the saveScore() and loadScore() functions to read from and write to Firestore.
 
-Day 3: Integration
+### Day 3: Integration
 
   Person 1 & Person 2: Merge the user input from Person 2 into the UI and scene from Person 1. The onMouseUp event should now trigger the ball's movement and update the stroke count in the UI.
 
   Person 3: Create the levelData array and the loadHole(holeNum) function. Connect the Next Hole button to this function.
 
-Day 4: Polish & Bonus
+### Day 4: Polish & Bonus
 
   Person 1: Refine UI styling and ensure the page is fully responsive.
 
@@ -136,6 +136,6 @@ Day 4: Polish & Bonus
 
   Person 3: Add the third level's data to the levelData array and ensure the level transition works smoothly. Make sure the total score is updated and saved to Firestore upon hole completion.
 
-Day 5: Final Review & Debugging
+### Day 5: Final Review & Debugging
 
-All: Combine all the code into the final single file. Play the game together, test all levels, and debug any issues that arise. Ensure all project requirements are met and the game is stable.
+### All: Combine all the code into the final single file. Play the game together, test all levels, and debug any issues that arise. Ensure all project requirements are met and the game is stable.
