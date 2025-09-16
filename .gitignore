@@ -1,0 +1,5 @@
+# Python virtual environment folder
+venv/
+
+# Local SQLite database file
+backend/site.db
