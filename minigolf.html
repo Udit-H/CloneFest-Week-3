@@ -7,6 +7,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, getDocs, collection, onSnapshot, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Ensure log level is set for debugging in development
+        setLogLevel('debug');
+    </script>
     <style>
         body {
             margin: 0;
@@ -31,35 +40,103 @@
             min-width: 300px;
             text-align: center;
         }
+        #level-navigator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            pointer-events: none;
+            text-align: center;
+        }
+        #start-button, #next-button {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        #start-button:hover, #next-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
-    <!-- UI elements (Your responsibility) -->
+    <!-- UI elements -->
     <div id="ui-container" class="space-y-2 p-4 bg-gray-800 bg-opacity-75 rounded-xl shadow-lg border-2 border-gray-700">
         <div id="hole-number" class="text-lg font-bold">Hole: 1</div>
         <div id="strokes" class="text-lg font-bold">Strokes: 0</div>
+        <div id="total-score" class="text-lg font-bold">Total Score: 0</div>
+        <div id="player-id" class="text-xs text-gray-400 mt-2">Player ID: N/A</div>
     </div>
     
-    <!-- This is the message box for game feedback (e.g., "Hole Completed!") -->
     <div id="message-box" class="p-3 rounded-md text-white shadow-lg bg-green-500"></div>
+
+    <div id="level-navigator" class="p-8 bg-gray-800 rounded-xl shadow-lg border-2 border-gray-700">
+        <h2 id="navigator-title" class="text-2xl font-bold mb-4">Hole 1</h2>
+        <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Start Game</button>
+        <button id="next-button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Next Hole</button>
+    </div>
 
     <script type="module">
         let scene, camera, renderer, controls;
-        let golfBall, hole;
+        let golfBall, hole, ground;
 
-        // Variables for drag/input logic (from Person 2's role)
         let golfBallVelocity = new THREE.Vector3();
         let isDragging = false;
         let dragStartMouse = new THREE.Vector2();
         let dragLine;
         let powerIndicator;
-        let strokes = 0;
         
-        // UI elements (from Person 1's role)
+        let strokes = 0;
+        let totalScore = 0;
+        let currentHole = 1;
+
+        // Firebase variables
+        let app, db, auth, userId;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
+
+        // UI elements
         const messageBox = document.getElementById('message-box');
         const strokesText = document.getElementById('strokes');
+        const holeNumberText = document.getElementById('hole-number');
+        const totalScoreText = document.getElementById('total-score');
+        const playerIdText = document.getElementById('player-id');
+        const levelNavigator = document.getElementById('level-navigator');
+        const navigatorTitle = document.getElementById('navigator-title');
+        const startButton = document.getElementById('start-button');
+        const nextButton = document.getElementById('next-button');
 
-        // Function to show feedback messages
+        // Level data for 3 holes
+        const levelData = [
+            {
+                hole: 1,
+                par: 3,
+                ballStart: new THREE.Vector3(-8, 0.25, 0),
+                holePosition: new THREE.Vector3(8, 0.25, 0),
+                groundSize: new THREE.Vector3(20, 0.5, 10),
+                terrain: []
+            },
+            {
+                hole: 2,
+                par: 4,
+                ballStart: new THREE.Vector3(0, 0.25, -8),
+                holePosition: new THREE.Vector3(0, 0.25, 8),
+                groundSize: new THREE.Vector3(10, 0.5, 20),
+                terrain: []
+            },
+            {
+                hole: 3,
+                par: 5,
+                ballStart: new THREE.Vector3(-10, 0.25, 0),
+                holePosition: new THREE.Vector3(10, 0.25, 0),
+                groundSize: new THREE.Vector3(25, 0.5, 15),
+                terrain: [
+                    { position: new THREE.Vector3(0, 2, 0), size: new THREE.Vector3(5, 4, 5) }
+                ]
+            }
+        ];
+
         function showMessage(message, colorClass = "bg-green-500") {
             messageBox.textContent = message;
             messageBox.className = `p-3 rounded-md text-white shadow-lg transition-opacity duration-300 ${colorClass}`;
@@ -69,53 +146,89 @@
             }, 3000);
         }
 
+        async function setupFirebase() {
+            try {
+                if (Object.keys(firebaseConfig).length > 0) {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    await new Promise(resolve => {
+                        onAuthStateChanged(auth, user => {
+                            if (user) {
+                                userId = user.uid;
+                                playerIdText.textContent = `Player ID: ${userId}`;
+                            } else {
+                                userId = `guest_${crypto.randomUUID()}`;
+                                playerIdText.textContent = `Player ID: N/A`;
+                            }
+                            resolve();
+                        });
+                    });
+
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        userId = auth.currentUser.uid;
+                        playerIdText.textContent = `Player ID: ${userId}`;
+                    } else {
+                        await signInAnonymously(auth);
+                        userId = auth.currentUser.uid;
+                        playerIdText.textContent = `Player ID: ${userId}`;
+                    }
+                    await loadScore();
+                }
+            } catch (error) {
+                console.error("Firebase initialization or auth failed:", error);
+            }
+        }
+
+        async function saveScore() {
+            if (!db || !userId) return;
+            const scoreRef = doc(db, `artifacts/${appId}/users/${userId}/scores/minigolf_score`);
+            try {
+                await setDoc(scoreRef, { totalScore: totalScore });
+            } catch (error) {
+                console.error("Error saving score:", error);
+            }
+        }
+
+        async function loadScore() {
+            if (!db || !userId) return;
+            const scoreRef = doc(db, `artifacts/${appId}/users/${userId}/scores/minigolf_score`);
+            try {
+                const docSnap = await getDoc(scoreRef);
+                if (docSnap.exists()) {
+                    totalScore = docSnap.data().totalScore;
+                    totalScoreText.textContent = `Total Score: ${totalScore}`;
+                } else {
+                    totalScore = 0;
+                    totalScoreText.textContent = `Total Score: 0`;
+                }
+            } catch (error) {
+                console.error("Error loading score:", error);
+            }
+        }
+
         function init() {
-            // Scene setup
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
             
-            // Camera setup
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, 15, 15);
             
-            // Renderer setup
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // OrbitControls for camera
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
 
-            // Lighting
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
             directionalLight.position.set(5, 10, 5);
             scene.add(directionalLight);
 
-            // Ground model (a simple, flat course for now)
-            const groundGeometry = new THREE.BoxGeometry(20, 0.5, 10);
-            const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x55aa55 });
-            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-            ground.position.y = -0.25;
-            scene.add(ground);
-            
-            // Hole model (made with a cylinder)
-            const holeGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.2, 32);
-            const holeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-            hole = new THREE.Mesh(holeGeometry, holeMaterial);
-            hole.position.set(8, 0, 0);
-            scene.add(hole);
-
-            // Golf ball
-            const ballGeometry = new THREE.SphereGeometry(0.25, 32, 32);
-            const ballMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-            golfBall = new THREE.Mesh(ballGeometry, ballMaterial);
-            golfBall.position.set(-8, 0.25, 0);
-            scene.add(golfBall);
-
-            // TODO: Your code goes here
             // Visual aids for aiming and power
             const dragMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
             const dragGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
@@ -129,13 +242,79 @@
             powerIndicator.visible = false;
             scene.add(powerIndicator);
 
-            // Event listeners for player controls (from Person 2's role)
+            // Event listeners
             window.addEventListener('mousedown', onMouseDown, false);
             window.addEventListener('mouseup', onMouseUp, false);
             window.addEventListener('mousemove', onMouseMove, false);
-
             window.addEventListener('resize', onWindowResize, false);
+            startButton.addEventListener('click', () => loadHole(1));
+            nextButton.addEventListener('click', () => loadHole(currentHole + 1));
+            
             animate();
+        }
+
+        function clearScene() {
+            while(scene.children.length > 0){ 
+                scene.remove(scene.children[0]); 
+            }
+        }
+
+        function loadHole(holeNum) {
+            clearScene();
+            
+            const level = levelData.find(l => l.hole === holeNum);
+            if (!level) {
+                showMessage("Game Over! Final Score: " + totalScore, "bg-indigo-600");
+                return;
+            }
+            
+            currentHole = holeNum;
+            strokes = 0;
+            golfBallVelocity.set(0,0,0);
+            holeNumberText.textContent = `Hole: ${currentHole}`;
+            strokesText.textContent = `Strokes: ${strokes}`;
+            
+            // Re-add lights and visual aids
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            scene.add(directionalLight);
+            scene.add(dragLine);
+            scene.add(powerIndicator);
+
+            // Ground model
+            const groundGeometry = new THREE.BoxGeometry(level.groundSize.x, level.groundSize.y, level.groundSize.z);
+            const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x55aa55 });
+            ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.position.y = -0.25;
+            scene.add(ground);
+            
+            // Hole model
+            const holeGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.2, 32);
+            const holeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            hole = new THREE.Mesh(holeGeometry, holeMaterial);
+            hole.position.copy(level.holePosition);
+            scene.add(hole);
+
+            // Golf ball
+            const ballGeometry = new THREE.SphereGeometry(0.25, 32, 32);
+            const ballMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            golfBall = new THREE.Mesh(ballGeometry, ballMaterial);
+            golfBall.position.copy(level.ballStart);
+            scene.add(golfBall);
+            
+            // Terrain for bonus level
+            level.terrain.forEach(t => {
+                const terrainGeometry = new THREE.BoxGeometry(t.size.x, t.size.y, t.size.z);
+                const terrainMaterial = new THREE.MeshStandardMaterial({ color: 0x55aa55 });
+                const terrainMesh = new THREE.Mesh(terrainGeometry, terrainMaterial);
+                terrainMesh.position.copy(t.position);
+                scene.add(terrainMesh);
+            });
+
+            levelNavigator.style.opacity = '0';
+            levelNavigator.style.pointerEvents = 'none';
         }
 
         function onWindowResize() {
@@ -144,9 +323,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // Functions for game physics and interaction logic (from Person 2's role)
         function onMouseDown(event) {
-            // Do not allow a new shot if the ball is still moving
             if (golfBallVelocity.length() > 0.01) return;
             isDragging = true;
             dragStartMouse.set(event.clientX, event.clientY);
@@ -154,31 +331,27 @@
 
         function onMouseMove(event) {
             if (!isDragging) return;
-
             const currentMouse = new THREE.Vector2(event.clientX, event.clientY);
             const dragDistance = dragStartMouse.distanceTo(currentMouse);
             const power = Math.min(dragDistance / 100, 10);
             
-            // Project mouse position to a 3D plane for aiming
             const raycaster = new THREE.Raycaster();
             const mouse = new THREE.Vector2();
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
 
-            const intersects = raycaster.intersectObject(scene.children.find(child => child.geometry.type === "BoxGeometry")); // Find the ground plane
+            const intersects = raycaster.intersectObject(scene.children.find(child => child.geometry.type === "BoxGeometry"));
             if (intersects.length > 0) {
                 const intersectPoint = intersects[0].point;
                 const direction = new THREE.Vector3().subVectors(intersectPoint, golfBall.position).normalize();
 
-                // Draw the line from the ball
                 const points = [
                     golfBall.position,
                     new THREE.Vector3().addVectors(golfBall.position, direction.multiplyScalar(power))
                 ];
                 dragLine.geometry.setFromPoints(points);
 
-                // Position and show power indicator
                 powerIndicator.visible = true;
                 powerIndicator.position.copy(golfBall.position);
                 powerIndicator.position.y += power / 2;
@@ -209,10 +382,11 @@
                 const intersectPoint = intersects[0].point;
                 const direction = new THREE.Vector3().subVectors(intersectPoint, golfBall.position).normalize();
 
-                // Apply velocity to the ball
                 golfBallVelocity = direction.multiplyScalar(power);
                 strokes++;
+                totalScore++;
                 strokesText.textContent = `Strokes: ${strokes}`;
+                totalScoreText.textContent = `Total Score: ${totalScore}`;
                 showMessage(`Stroke #${strokes}`, "bg-blue-500");
             }
             isDragging = false;
@@ -220,34 +394,44 @@
             powerIndicator.visible = false;
         }
 
+        function onHoleComplete() {
+            showMessage("Hole Completed! Good job!", "bg-green-500");
+            saveScore();
+            levelNavigator.style.opacity = '1';
+            levelNavigator.style.pointerEvents = 'auto';
+            startButton.style.display = 'none';
+            if (currentHole < levelData.length) {
+                navigatorTitle.textContent = `Hole ${currentHole} Completed!`;
+                nextButton.style.display = 'inline-block';
+            } else {
+                navigatorTitle.textContent = "Game Over!";
+                nextButton.style.display = 'none';
+            }
+        }
+
         function animate() {
             requestAnimationFrame(animate);
             
-            // Update physics (from Person 2's role)
             if (golfBallVelocity.length() > 0.01) {
                 golfBall.position.add(golfBallVelocity);
                 golfBallVelocity.multiplyScalar(0.98);
 
-                // Check if the ball has stopped
                 if (golfBallVelocity.length() < 0.01) {
                     golfBallVelocity.set(0, 0, 0);
 
-                    // Check for goal detection
                     const distanceToHole = golfBall.position.distanceTo(hole.position);
                     if (distanceToHole < 0.5) {
-                        showMessage("Hole Completed! Good job!", "bg-green-500");
+                        onHoleComplete();
                     }
                 }
             }
-
-            // Update camera controls (Your responsibility)
             controls.update();
-
             renderer.render(scene, camera);
         }
 
         window.onload = function() {
             init();
+            setupFirebase();
         };
     </script>
 </body>
