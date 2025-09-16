@@ -51,9 +51,13 @@
         let golfBallVelocity = new THREE.Vector3();
         let isDragging = false;
         let dragStartMouse = new THREE.Vector2();
+        let dragLine;
+        let powerIndicator;
+        let strokes = 0;
         
         // UI elements (from Person 1's role)
         const messageBox = document.getElementById('message-box');
+        const strokesText = document.getElementById('strokes');
 
         // Function to show feedback messages
         function showMessage(message, colorClass = "bg-green-500") {
@@ -111,6 +115,20 @@
             golfBall.position.set(-8, 0.25, 0);
             scene.add(golfBall);
 
+            // TODO: Your code goes here
+            // Visual aids for aiming and power
+            const dragMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+            const dragGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+            dragLine = new THREE.Line(dragGeometry, dragMaterial);
+            scene.add(dragLine);
+
+            const powerGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const powerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            powerIndicator = new THREE.Mesh(powerGeometry, powerMaterial);
+            powerIndicator.position.set(0, 0, 0);
+            powerIndicator.visible = false;
+            scene.add(powerIndicator);
+
             // Event listeners for player controls (from Person 2's role)
             window.addEventListener('mousedown', onMouseDown, false);
             window.addEventListener('mouseup', onMouseUp, false);
@@ -128,15 +146,78 @@
 
         // Functions for game physics and interaction logic (from Person 2's role)
         function onMouseDown(event) {
-            // TODO: Your code goes here
+            // Do not allow a new shot if the ball is still moving
+            if (golfBallVelocity.length() > 0.01) return;
+            isDragging = true;
+            dragStartMouse.set(event.clientX, event.clientY);
         }
 
         function onMouseMove(event) {
-            // TODO: Your code goes here
+            if (!isDragging) return;
+
+            const currentMouse = new THREE.Vector2(event.clientX, event.clientY);
+            const dragDistance = dragStartMouse.distanceTo(currentMouse);
+            const power = Math.min(dragDistance / 100, 10);
+            
+            // Project mouse position to a 3D plane for aiming
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObject(scene.children.find(child => child.geometry.type === "BoxGeometry")); // Find the ground plane
+            if (intersects.length > 0) {
+                const intersectPoint = intersects[0].point;
+                const direction = new THREE.Vector3().subVectors(intersectPoint, golfBall.position).normalize();
+
+                // Draw the line from the ball
+                const points = [
+                    golfBall.position,
+                    new THREE.Vector3().addVectors(golfBall.position, direction.multiplyScalar(power))
+                ];
+                dragLine.geometry.setFromPoints(points);
+
+                // Position and show power indicator
+                powerIndicator.visible = true;
+                powerIndicator.position.copy(golfBall.position);
+                powerIndicator.position.y += power / 2;
+                powerIndicator.scale.y = power;
+            }
         }
 
         function onMouseUp(event) {
-            // TODO: Your code goes here
+            if (!isDragging || golfBallVelocity.length() > 0.01) {
+                isDragging = false;
+                dragLine.geometry.setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+                powerIndicator.visible = false;
+                return;
+            }
+
+            const currentMouse = new THREE.Vector2(event.clientX, event.clientY);
+            const dragDistance = dragStartMouse.distanceTo(currentMouse);
+            const power = Math.min(dragDistance / 100, 10);
+
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObject(scene.children.find(child => child.geometry.type === "BoxGeometry"));
+            if (intersects.length > 0) {
+                const intersectPoint = intersects[0].point;
+                const direction = new THREE.Vector3().subVectors(intersectPoint, golfBall.position).normalize();
+
+                // Apply velocity to the ball
+                golfBallVelocity = direction.multiplyScalar(power);
+                strokes++;
+                strokesText.textContent = `Strokes: ${strokes}`;
+                showMessage(`Stroke #${strokes}`, "bg-blue-500");
+            }
+            isDragging = false;
+            dragLine.geometry.setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+            powerIndicator.visible = false;
         }
 
         function animate() {
@@ -146,6 +227,17 @@
             if (golfBallVelocity.length() > 0.01) {
                 golfBall.position.add(golfBallVelocity);
                 golfBallVelocity.multiplyScalar(0.98);
+
+                // Check if the ball has stopped
+                if (golfBallVelocity.length() < 0.01) {
+                    golfBallVelocity.set(0, 0, 0);
+
+                    // Check for goal detection
+                    const distanceToHole = golfBall.position.distanceTo(hole.position);
+                    if (distanceToHole < 0.5) {
+                        showMessage("Hole Completed! Good job!", "bg-green-500");
+                    }
+                }
             }
 
             // Update camera controls (Your responsibility)
