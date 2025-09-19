@@ -77,7 +77,19 @@ const levelData = [
 
 // --- UI COMPONENTS (Self-Styled) ---
 
-function SuccessScreen({ onNextLevel, isLastLevel }: { onNextLevel: () => void; isLastLevel: boolean }) {
+function SuccessScreen({
+  onNextLevel,
+  isLastLevel,
+  strokes,
+  onRetry,
+  onExit,
+}: {
+  onNextLevel: () => void;
+  isLastLevel: boolean;
+  strokes: number;
+  onRetry: () => void;
+  onExit: () => void;
+}) {
   useEffect(() => {
     successSound?.play();
   }, []);
@@ -87,10 +99,30 @@ function SuccessScreen({ onNextLevel, isLastLevel }: { onNextLevel: () => void; 
       <div className="modal-backdrop">
         <div className="modal-box">
           <h1>{isLastLevel ? "GAME COMPLETE!" : "YAYY! SUCCESS 🎉"}</h1>
-          <p>{isLastLevel ? "You've beaten all the levels!" : "You completed the hole!"}</p>
-          <button onClick={onNextLevel}>
-            {isLastLevel ? "Play Again" : "Next Level"}
-          </button>
+          <p>
+            {isLastLevel
+              ? "You've beaten all the levels!"
+              : "You completed the hole!"}
+          </p>
+          <p className="strokes-display">Strokes: {strokes}</p>
+          <div className="button-container">
+            {!isLastLevel && (
+              <button onClick={onNextLevel} className="btn-primary">
+                Next Level
+              </button>
+            )}
+            {isLastLevel && (
+              <button onClick={onNextLevel} className="btn-primary">
+                Play Again
+              </button>
+            )}
+            <button onClick={onRetry} className="btn-secondary">
+              Retry
+            </button>
+            <button onClick={onExit} className="btn-tertiary">
+              Exit
+            </button>
+          </div>
         </div>
       </div>
       <style jsx>{`
@@ -108,14 +140,26 @@ function SuccessScreen({ onNextLevel, isLastLevel }: { onNextLevel: () => void; 
           color: white;
         }
         h1 { margin-bottom: 1rem; font-size: 3rem; font-weight: 700; }
-        p { margin-bottom: 2rem; font-size: 1.25rem; color: #cbd5e1; }
+        p { margin-bottom: 0.5rem; font-size: 1.25rem; color: #cbd5e1; }
+        .strokes-display { font-size: 1.5rem; font-weight: bold; margin-bottom: 2rem; }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
         button {
-          border-radius: 0.5rem; background-color: #16a34a;
-          padding: 1rem 2rem; font-size: 1.25rem; font-weight: 700;
+          border-radius: 0.5rem;
+          padding: 0.75rem 1.5rem; font-size: 1.1rem; font-weight: 700;
           color: white; transition: background-color 0.2s;
           border: none; cursor: pointer;
         }
-        button:hover { background-color: #15803d; }
+        .btn-primary { background-color: #16a34a; }
+        .btn-primary:hover { background-color: #15803d; }
+        .btn-secondary { background-color: #2563eb; }
+        .btn-secondary:hover { background-color: #1d4ed8; }
+        .btn-tertiary { background-color: #94a3b8; }
+        .btn-tertiary:hover { background-color: #64748b; }
       `}</style>
     </>
   );
@@ -126,7 +170,11 @@ function LevelSelectionMenu({ onSelectLevel }: { onSelectLevel: (index: number) 
     <>
       <div className="menu-container">
         <div className="menu-box">
-          <h1>Select a Level</h1>
+          <div className="header">
+            <h1>CloneFest 2025 Minigolf</h1>
+            <p>3D Web-based Minigolf Challenge</p>
+          </div>
+          <h2>Select a Level</h2>
           <div className="button-group">
             <button onClick={() => onSelectLevel(0)}>Easy</button>
             <button onClick={() => onSelectLevel(1)}>Medium</button>
@@ -141,8 +189,27 @@ function LevelSelectionMenu({ onSelectLevel }: { onSelectLevel: (index: number) 
           height: 100%;
           background: linear-gradient(to bottom right, #1e293b, #0f172a);
         }
-        .menu-box { text-align: center; }
-        h1 { color: white; font-size: 3rem; font-weight: bold; margin-bottom: 2rem; }
+        .menu-box { text-align: center; padding: 1rem; }
+        .header {
+          margin-bottom: 4rem;
+        }
+        .header h1 {
+          font-size: 3.5rem;
+          font-weight: 800;
+          color: #e2e8f0;
+          text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+          margin-bottom: 0.5rem;
+        }
+        .header p {
+          font-size: 1.25rem;
+          color: #94a3b8;
+        }
+        h2 { 
+            color: white; 
+            font-size: 2.25rem; 
+            font-weight: bold; 
+            margin-bottom: 2rem; 
+        }
         .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; }
         button {
           padding: 1rem 2rem; background-color: #2563eb;
@@ -180,6 +247,14 @@ export default function MinigolfGame() {
         } else {
             setGameState("menu");
         }
+    };
+    
+    const handleRetry = () => {
+        handleLevelSelect(currentLevelIndex);
+    };
+
+    const handleExit = () => {
+        setGameState("menu");
     };
     
     useEffect(() => {
@@ -444,6 +519,23 @@ export default function MinigolfGame() {
                     <button onClick={() => setGameState("menu")} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, padding: '0.5rem 1rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>
                         Exit
                     </button>
+                    {currentLevelIndex === 0 && gameState === 'playing' && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '1rem',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: 'rgba(0, 0, 0, 0.6)',
+                            color: 'white',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '0.75rem',
+                            textAlign: 'center',
+                            fontSize: '0.9rem',
+                            zIndex: 50
+                        }}>
+                            <p><b>Rotate:</b> Left Mouse Drag | <b>Pan:</b> Right Mouse Drag | <b>Zoom:</b> Scroll Wheel</p>
+                        </div>
+                    )}
                 </>
             )}
 
@@ -451,6 +543,9 @@ export default function MinigolfGame() {
                 <SuccessScreen
                     onNextLevel={handleNextLevel}
                     isLastLevel={currentLevelIndex === levelData.length - 1}
+                    strokes={strokes}
+                    onRetry={handleRetry}
+                    onExit={handleExit}
                 />
             )}
         </div>
