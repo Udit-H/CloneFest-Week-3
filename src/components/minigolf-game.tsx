@@ -3,8 +3,14 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { useEffect, useRef, useState } from "react";
 
+// --- SOUNDS ---
+const hitSound = typeof Audio !== "undefined" ? new Audio('/sounds/hit.mp3') : undefined;
+const collisionSound = typeof Audio !== "undefined" ? new Audio('/sounds/collision.mp3') : undefined;
+const waterSound = typeof Audio !== "undefined" ? new Audio('/sounds/water.mp3') : undefined;
+const successSound = typeof Audio !== "undefined" ? new Audio('/sounds/success.mp3') : undefined;
+
+
 // --- LEVEL DATA ---
-// The central wall from the Hard level has been removed.
 const levelData = [
   {
     name: 'Easy: The Starter',
@@ -12,8 +18,8 @@ const levelData = [
     holePos: new THREE.Vector3(0, 0.05, 8),
     friction: 0.97,
     walls: [
-      { x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
-      { x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
+      { type: 'wall', x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { type: 'wall', x: 0, z: 10, w: 20, h: 1, d: 0.5 },
+      { type: 'wall', x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { type: 'wall', x: 10, z: 0, w: 0.5, h: 1, d: 20 },
     ],
   },
   {
@@ -22,9 +28,9 @@ const levelData = [
     holePos: new THREE.Vector3(8, 0.05, 8),
     friction: 0.96,
     walls: [
-      { x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
-      { x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
-      { x: 0, z: 0, w: 0.5, h: 1, d: 15 },
+      { type: 'wall', x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { type: 'wall', x: 0, z: 10, w: 20, h: 1, d: 0.5 },
+      { type: 'wall', x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { type: 'wall', x: 10, z: 0, w: 0.5, h: 1, d: 20 },
+      { type: 'wall', x: 0, z: 0, w: 0.5, h: 1, d: 15 },
     ],
     sandTrap: {
       xMin: 2, xMax: 8, zMin: -2, zMax: 2, friction: 0.88,
@@ -36,9 +42,8 @@ const levelData = [
     holePos: new THREE.Vector3(0, 0.05, 8),
     friction: 0.95,
     walls: [
-      // Outer walls remain, but the central partition is gone.
-      { x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
-      { x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
+      { type: 'wall', x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { type: 'wall', x: 0, z: 10, w: 20, h: 1, d: 0.5 },
+      { type: 'wall', x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { type: 'wall', x: 10, z: 0, w: 0.5, h: 1, d: 20 },
     ],
     sandTrap: {
       xMin: 2, xMax: 8, zMin: -8, zMax: 0, friction: 0.88,
@@ -50,11 +55,33 @@ const levelData = [
       zStart: 3, force: new THREE.Vector3(0, 0, 0.002)
     }
   },
+  {
+    name: 'Complex: The Rock Garden',
+    ballStart: new THREE.Vector3(0, 0.4, -8),
+    holePos: new THREE.Vector3(0, 0.05, 8),
+    friction: 0.97,
+    walls: [
+      { type: 'wall', x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { type: 'wall', x: 0, z: 10, w: 20, h: 1, d: 0.5 },
+      { type: 'wall', x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { type: 'wall', x: 10, z: 0, w: 0.5, h: 1, d: 20 },
+    ],
+    movingWalls: [
+      { type: 'wall', x: 0, z: 0, w: 8, h: 1, d: 0.5, axis: 'x', range: 5, speed: 0.0025 }
+    ],
+    rocks: [
+      { type: 'rock', x: -2, z: 4, size: 0.6 },
+      { type: 'rock', x: 2, z: 4, size: 0.6 },
+      { type: 'rock', x: 0, z: -4, size: 0.8 },
+    ]
+  },
 ];
 
 // --- UI COMPONENTS (Self-Styled) ---
 
 function SuccessScreen({ onNextLevel, isLastLevel }: { onNextLevel: () => void; isLastLevel: boolean }) {
+  useEffect(() => {
+    successSound?.play();
+  }, []);
+
   return (
     <>
       <div className="modal-backdrop">
@@ -104,6 +131,7 @@ function LevelSelectionMenu({ onSelectLevel }: { onSelectLevel: (index: number) 
             <button onClick={() => onSelectLevel(0)}>Easy</button>
             <button onClick={() => onSelectLevel(1)}>Medium</button>
             <button onClick={() => onSelectLevel(2)}>Hard</button>
+            <button onClick={() => onSelectLevel(3)}>Complex</button>
           </div>
         </div>
       </div>
@@ -115,7 +143,7 @@ function LevelSelectionMenu({ onSelectLevel }: { onSelectLevel: (index: number) 
         }
         .menu-box { text-align: center; }
         h1 { color: white; font-size: 3rem; font-weight: bold; margin-bottom: 2rem; }
-        .button-group { display: flex; gap: 1rem; }
+        .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; }
         button {
           padding: 1rem 2rem; background-color: #2563eb;
           border-radius: 0.5rem; color: white;
@@ -133,9 +161,8 @@ function LevelSelectionMenu({ onSelectLevel }: { onSelectLevel: (index: number) 
 
 export default function MinigolfGame() {
     const mountRef = useRef<HTMLDivElement>(null);
-    const ballRef = useRef<THREE.Mesh | null>(null);
     const velocityRef = useRef(new THREE.Vector3());
-
+    
     const [strokes, setStrokes] = useState(0);
     const [gameState, setGameState] = useState("menu");
     const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
@@ -195,7 +222,7 @@ export default function MinigolfGame() {
         if (currentLevel.slope) {
             const slope = currentLevel.slope;
             const slopeDepth = 10 - slope.zStart;
-            const slopeGeo = new THREE.PlaneGeometry(20, slopeDepth); // Make it full width
+            const slopeGeo = new THREE.PlaneGeometry(20, slopeDepth);
             const slopeMat = new THREE.MeshStandardMaterial({ color: 0x2e4b09 });
             const slopeMesh = new THREE.Mesh(slopeGeo, slopeMat);
             slopeMesh.rotation.x = -Math.PI / 2;
@@ -204,13 +231,37 @@ export default function MinigolfGame() {
         }
         
         const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
-        const walls: THREE.Mesh[] = [];
-        currentLevel.walls.forEach(w => {
-            const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
-            wall.position.set(w.x, w.h / 2, w.z);
-            scene.add(wall);
-            walls.push(wall);
-        });
+        const obstacles: { mesh: THREE.Object3D, type: string }[] = [];
+
+        if (currentLevel.walls) {
+            currentLevel.walls.forEach(w => {
+                const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
+                wall.position.set(w.x, w.h / 2, w.z);
+                scene.add(wall);
+                obstacles.push({ mesh: wall, type: w.type });
+            });
+        }
+
+        const movingWallMeshes: THREE.Mesh[] = [];
+        if (currentLevel.movingWalls) {
+            currentLevel.movingWalls.forEach(w => {
+                const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
+                wall.position.set(w.x, w.h / 2, w.z);
+                scene.add(wall);
+                obstacles.push({ mesh: wall, type: w.type });
+                movingWallMeshes.push(wall);
+            });
+        }
+
+        if (currentLevel.rocks) {
+            const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 });
+            currentLevel.rocks.forEach(r => {
+                const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r.size, 1), rockMaterial);
+                rock.position.set(r.x, r.size / 2, r.z);
+                scene.add(rock);
+                obstacles.push({ mesh: rock, type: r.type });
+            });
+        }
 
         const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x000000 }));
         hole.position.copy(currentLevel.holePos);
@@ -223,7 +274,6 @@ export default function MinigolfGame() {
         const ball = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
         ball.position.copy(currentLevel.ballStart);
         scene.add(ball);
-        ballRef.current = ball;
 
         const previewDots: THREE.Mesh[] = [];
         const dotGeom = new THREE.SphereGeometry(0.1, 8, 8);
@@ -237,14 +287,6 @@ export default function MinigolfGame() {
         
         let isDragging = false;
         let dragStart = new THREE.Vector2();
-
-        function screenOverBall(x: number, y: number) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            const mouse = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(mouse, camera);
-            return raycaster.intersectObject(ball).length > 0;
-        }
 
         function onMouseDown(e: MouseEvent) {
             if (screenOverBall(e.clientX, e.clientY) && velocityRef.current.lengthSq() < 0.001) {
@@ -284,13 +326,27 @@ export default function MinigolfGame() {
         renderer.domElement.addEventListener("mousemove", onMouseMove);
         window.addEventListener("mouseup", onMouseUp);
 
+        let collidingObstacle: THREE.Object3D | null = null;
         let animationFrameId: number;
         function animate() {
             animationFrameId = requestAnimationFrame(animate);
             
+            if (currentLevel.movingWalls) {
+                const time = Date.now();
+                currentLevel.movingWalls.forEach((wallData, index) => {
+                    const wallMesh = movingWallMeshes[index];
+                    if (wallData.axis === 'x') {
+                        wallMesh.position.x = Math.sin(time * wallData.speed) * wallData.range;
+                    } else {
+                        wallMesh.position.z = Math.sin(time * wallData.speed) * wallData.range;
+                    }
+                });
+            }
+
             if (currentLevel.water) {
                 const water = currentLevel.water;
                 if (ball.position.x > water.xMin && ball.position.x < water.xMax && ball.position.z > water.zMin && ball.position.z < water.zMax) {
+                    waterSound?.play();
                     ball.position.copy(currentLevel.ballStart);
                     velocityRef.current.set(0, 0, 0);
                     setStrokes(s => s + 1);
@@ -312,31 +368,38 @@ export default function MinigolfGame() {
                 velocityRef.current.add(currentLevel.slope.force);
             }
 
-            walls.forEach(wall => {
-                const wallBox = new THREE.Box3().setFromObject(wall);
+            let collisionDetectedThisFrame = false;
+            obstacles.forEach(obstacle => {
+                const obstacleBox = new THREE.Box3().setFromObject(obstacle.mesh);
                 const ballBox = new THREE.Box3().setFromObject(ball);
                 
-                if (wallBox.intersectsBox(ballBox)) {
-                    const overlap = ballBox.clone().intersect(wallBox);
+                if (obstacleBox.intersectsBox(ballBox)) {
+                    collisionDetectedThisFrame = true;
+                    if (collidingObstacle !== obstacle.mesh) {
+                        if (currentLevelIndex !== 2) { // Don't play sounds on Hard level
+                            if (obstacle.type === 'wall') {
+                                hitSound?.play();
+                            } else if (obstacle.type === 'rock') {
+                                collisionSound?.play();
+                            }
+                        }
+                        collidingObstacle = obstacle.mesh;
+                    }
+                    
+                    const overlap = ballBox.clone().intersect(obstacleBox);
                     const overlapSize = overlap.getSize(new THREE.Vector3());
                     if (overlapSize.x < overlapSize.z) {
                         velocityRef.current.x *= -0.7;
-                        ball.position.x += (ball.position.x > wall.position.x ? 1 : -1) * overlapSize.x;
+                        ball.position.x += (ball.position.x > obstacle.mesh.position.x ? 1 : -1) * overlapSize.x;
                     } else {
                         velocityRef.current.z *= -0.7;
-                        ball.position.z += (ball.position.z > wall.position.z ? 1 : -1) * overlapSize.z;
+                        ball.position.z += (ball.position.z > obstacle.mesh.position.z ? 1 : -1) * overlapSize.z;
                     }
                 }
             });
 
-            const limit = 9.5;
-            if (ball.position.x < -limit || ball.position.x > limit) {
-                velocityRef.current.x *= -0.7;
-                ball.position.x = THREE.MathUtils.clamp(ball.position.x, -limit, limit);
-            }
-            if (ball.position.z < -limit || ball.position.z > limit) {
-                velocityRef.current.z *= -0.7;
-                ball.position.z = THREE.MathUtils.clamp(ball.position.z, -limit, limit);
+            if (!collisionDetectedThisFrame) {
+                collidingObstacle = null;
             }
 
             if (ball.position.distanceTo(hole.position) < 0.6 && velocityRef.current.length() < 0.05) {
@@ -347,6 +410,15 @@ export default function MinigolfGame() {
             controls.update();
             renderer.render(scene, camera);
         }
+
+        function screenOverBall(x: number, y: number) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            return raycaster.intersectObject(ball).length > 0;
+        }
+        
         animate();
 
         return () => {
