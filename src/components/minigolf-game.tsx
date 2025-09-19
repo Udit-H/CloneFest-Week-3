@@ -137,15 +137,107 @@ function LevelSelectionMenu({ onSelectLevel }: { onSelectLevel: (index: number) 
   );
 }
 
+function HomeScreen({ onStart }: { onStart: () => void; }) {
+  const mountRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!mountRef.current) return;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xbfd1e5);
+    const camera = new THREE.PerspectiveCamera(75, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
+    camera.position.set(0, 4, 10);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+    mountRef.current.innerHTML = "";
+    mountRef.current.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x3a5f0b }));
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshStandardMaterial({ color: 0x3366ff }));
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(6, 0.01, 2);
+    scene.add(water);
+
+    const sand = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshStandardMaterial({ color: 0xc2b280 }));
+    sand.rotation.x = -Math.PI / 2;
+    sand.position.set(-6, 0.01, -2);
+    scene.add(sand);
+
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+    const slidingWall = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 0.5), wallMaterial);
+    slidingWall.position.set(0, 0.5, -4);
+    scene.add(slidingWall);
+
+    const plankGeo = new THREE.BoxGeometry(0.4, 3, 0.4);
+    plankGeo.translate(0, -1.5, 0);
+    const plank = new THREE.Mesh(plankGeo, wallMaterial);
+    plank.position.set(0, 3, 4);
+    scene.add(plank);
+
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    ball.position.set(0, 0.4, 0);
+    scene.add(ball);
+
+    let animationFrameId: number;
+    function animate() {
+      animationFrameId = requestAnimationFrame(animate);
+      const time = Date.now();
+      slidingWall.position.x = Math.sin(time * 0.001) * 4;
+      plank.rotation.z = Math.sin(time * 0.002) * (Math.PI / 4);
+      ball.position.z = Math.sin(time * 0.0005) * 6;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      if (renderer.domElement) {
+        renderer.dispose();
+      }
+    };
+  }, []);
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%',
+      background: 'linear-gradient(to bottom right, #1e293b, #0f172a)', textAlign: 'center', color: 'white'
+    }}>
+      <h1 style={{ fontSize: '3.5rem', fontWeight: 800, color: '#e2e8f0', textShadow: '0 0 15px rgba(255, 255, 255, 0.3)', marginBottom: '0.5rem' }}>CloneFest 2025 Minigolf</h1>
+      <p style={{ fontSize: '1.25rem', color: '#94a3b8', marginBottom: '2rem' }}>A 3D Minigolf Challenge</p>
+
+      <div ref={mountRef} style={{ width: '80%', maxWidth: '600px', height: '250px', borderRadius: '1rem', overflow: 'hidden', border: '2px solid #334155' }}></div>
+
+      <button
+        onClick={onStart}
+        style={{ marginTop: '2rem', padding: '0.75rem 2rem', backgroundColor: '#2563eb', borderRadius: '0.5rem', transition: 'background-color 0.2s', fontSize: '1.1rem', fontWeight: 'bold' }}
+        onMouseOver={e => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+        onMouseOut={e => e.currentTarget.style.backgroundColor = '#2563eb'}
+      >
+        Start Game
+      </button>
+    </div>
+  );
+}
+
 // --- MAIN GAME COMPONENT ---
 export default function MinigolfGame() {
   const mountRef = useRef<HTMLDivElement>(null);
   const velocityRef = useRef(new THREE.Vector3());
   const [strokes, setStrokes] = useState(0);
-  const [gameState, setGameState] = useState("menu");
+  const [gameState, setGameState] = useState("pre-menu");
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
   const [levelComplete, setLevelComplete] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false);
+
+  const handleStartGame = () => {
+    setGameState("menu");
+  };
 
   const handleLevelSelect = (index: number) => {
     setCurrentLevelIndex(index);
@@ -155,7 +247,7 @@ export default function MinigolfGame() {
   };
   const handleNextLevel = () => { const nextLevelIndex = currentLevelIndex + 1; if (nextLevelIndex < levelData.length) { handleLevelSelect(nextLevelIndex); } else { setGameState("menu"); } };
   const handleRetry = () => { handleLevelSelect(currentLevelIndex); };
-  const handleExit = () => { setGameState("menu"); };
+  const handleExit = () => { setGameState("pre-menu"); };
 
   useEffect(() => {
     if (!mountRef.current || gameState !== "playing") return;
@@ -180,7 +272,7 @@ export default function MinigolfGame() {
     const floorDepth = isLongLevel ? 40 : 20;
 
     let floorMaterial;
-    if (isLongLevel) {
+    if (currentLevelIndex >= 4) { // Simplified check for any long level
       const createCheckerboardTexture = () => {
         const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
         const context = canvas.getContext('2d')!;
@@ -490,41 +582,21 @@ export default function MinigolfGame() {
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', color: 'white' }}>
-      {!gameStarted ? (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
-          background: 'linear-gradient(to bottom right, #1e293b, #0f172a)', textAlign: 'center'
-        }}>
-          <div>
-            <h1 style={{ fontSize: '2.25rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>CloneFest 2025 Minigolf</h1>
-            <button
-              onClick={() => setGameStarted(true)}
-              style={{ padding: '0.75rem 1.5rem', backgroundColor: '#2563eb', borderRadius: '0.5rem', transition: 'background-color 0.2s' }}
-              onMouseOver={e => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-              onMouseOut={e => e.currentTarget.style.backgroundColor = '#2563eb'}
-            >
-              Start Game
-            </button>
-          </div>
-        </div>
-      ) : (
+      {gameState === 'pre-menu' && <HomeScreen onStart={handleStartGame} />}
+      {gameState === "menu" && <LevelSelectionMenu onSelectLevel={handleLevelSelect} />}
+      {(gameState === "playing" || gameState === "success") && (
         <>
-          {gameState === "menu" && <LevelSelectionMenu onSelectLevel={handleLevelSelect} />}
-          {(gameState === "playing" || gameState === "success") && (
-            <>
-              <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-              <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'rgba(0, 0, 0, 0.6)', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.75rem' }}>
-                <p style={{ fontWeight: 'bold' }}>{levelData[currentLevelIndex].name}</p>
-                <p>Strokes: {strokes}</p>
-              </div>
-              <button onClick={() => setGameState("menu")} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, padding: '0.5rem 1rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>
-                Exit
-              </button>
-            </>
-          )}
-          {gameState === "success" && (<SuccessScreen onNextLevel={handleNextLevel} isLastLevel={currentLevelIndex === levelData.length - 1} strokes={strokes} onRetry={handleRetry} onExit={handleExit} />)}
+          <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+          <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'rgba(0, 0, 0, 0.6)', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.75rem' }}>
+            <p style={{ fontWeight: 'bold' }}>{levelData[currentLevelIndex].name}</p>
+            <p>Strokes: {strokes}</p>
+          </div>
+          <button onClick={() => setGameState("pre-menu")} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, padding: '0.5rem 1rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>
+            Exit
+          </button>
         </>
       )}
+      {gameState === "success" && (<SuccessScreen onNextLevel={handleNextLevel} isLastLevel={currentLevelIndex === levelData.length - 1} strokes={strokes} onRetry={handleRetry} onExit={handleExit} />)}
     </div>
   );
 }
