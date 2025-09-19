@@ -9,6 +9,9 @@ const collisionSound = typeof Audio !== "undefined" ? new Audio('/sounds/collisi
 const waterSound = typeof Audio !== "undefined" ? new Audio('/sounds/water.mp3') : undefined;
 const successSound = typeof Audio !== "undefined" ? new Audio('/sounds/success.mp3') : undefined;
 
+// --- CONSTANTS ---
+const GRAVITY = 0.005;
+const BALL_RADIUS = 0.4;
 
 // --- LEVEL DATA ---
 const levelData = [
@@ -32,9 +35,7 @@ const levelData = [
       { type: 'wall', x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { type: 'wall', x: 10, z: 0, w: 0.5, h: 1, d: 20 },
       { type: 'wall', x: 0, z: 0, w: 0.5, h: 1, d: 15 },
     ],
-    sandTrap: {
-      xMin: 2, xMax: 8, zMin: -2, zMax: 2, friction: 0.88,
-    }
+    sandTrap: { xMin: 2, xMax: 8, zMin: -2, zMax: 2, friction: 0.88, }
   },
   {
     name: 'Hard: The Hazard Slope',
@@ -45,15 +46,9 @@ const levelData = [
       { type: 'wall', x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { type: 'wall', x: 0, z: 10, w: 20, h: 1, d: 0.5 },
       { type: 'wall', x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { type: 'wall', x: 10, z: 0, w: 0.5, h: 1, d: 20 },
     ],
-    sandTrap: {
-      xMin: 2, xMax: 8, zMin: -8, zMax: 0, friction: 0.88,
-    },
-    water: {
-      xMin: -8, xMax: -2, zMin: -8, zMax: 0,
-    },
-    slope: {
-      zStart: 3, force: new THREE.Vector3(0, 0, 0.002)
-    }
+    sandTrap: { xMin: 2, xMax: 8, zMin: -8, zMax: 0, friction: 0.88, },
+    water: { xMin: -8, xMax: -2, zMin: -8, zMax: 0, },
+    slope: { zStart: 3, force: new THREE.Vector3(0, 0, 0.002) }
   },
   {
     name: 'Complex: The Rock Garden',
@@ -64,490 +59,344 @@ const levelData = [
       { type: 'wall', x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { type: 'wall', x: 0, z: 10, w: 20, h: 1, d: 0.5 },
       { type: 'wall', x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { type: 'wall', x: 10, z: 0, w: 0.5, h: 1, d: 20 },
     ],
-    movingWalls: [
-      { type: 'wall', x: 0, z: 0, w: 8, h: 1, d: 0.5, axis: 'x', range: 5, speed: 0.0025 }
-    ],
+    movingWalls: [{ type: 'wall', x: 0, z: 0, w: 8, h: 1, d: 0.5, axis: 'x', range: 5, speed: 0.0025 }],
     rocks: [
-      { type: 'rock', x: -2, z: 4, size: 0.6 },
-      { type: 'rock', x: 2, z: 4, size: 0.6 },
-      { type: 'rock', x: 0, z: -4, size: 0.8 },
+      { type: 'rock', x: -2, z: 4, size: 0.6 }, { type: 'rock', x: 2, z: 4, size: 0.6 }, { type: 'rock', x: 0, z: -4, size: 0.8 },
+    ]
+  },
+  {
+    name: 'Expert: The Climb',
+    useGravity: true,
+    ballStart: new THREE.Vector3(0, 0.4, 8),
+    holePos: new THREE.Vector3(0, 3.05, -8),
+    friction: 0.98,
+    grounds: [
+      { x: 0, y: 0, z: 6, w: 8, d: 8, color: 0x4A6D23 },
+      { x: 0, y: 3, z: -6, w: 8, d: 8, color: 0x4A6D23 }
+    ],
+    ramps: [
+      {
+        xMin: -2, xMax: 2, zMin: -2, zMax: 2,
+        yStart: 0, yEnd: 3, zStart: 2, zEnd: -2,
+        mesh: { x: 0, y: 1.5, z: 0, w: 4, h: 0.2, d: 5, color: 0x4A6D23 }
+      }
+    ],
+    walls: [
+      { y: 0, type: 'wall', x: -4, z: 6, w: 0.5, h: 1, d: 8 }, { y: 0, type: 'wall', x: 4, z: 6, w: 0.5, h: 1, d: 8 },
+      { y: 0, type: 'wall', x: 0, z: 10, w: 8, h: 1, d: 0.5 },
+      { y: 3, type: 'wall', x: -4, z: -6, w: 0.5, h: 1, d: 8 }, { y: 3, type: 'wall', x: 4, z: -6, w: 0.5, h: 1, d: 8 },
+      { y: 3, type: 'wall', x: 0, z: -10, w: 8, h: 1, d: 0.5 },
     ]
   },
 ];
 
-// --- UI COMPONENTS (Self-Styled) ---
-
-function SuccessScreen({
-  onNextLevel,
-  isLastLevel,
-  strokes,
-  onRetry,
-  onExit,
-}: {
-  onNextLevel: () => void;
-  isLastLevel: boolean;
-  strokes: number;
-  onRetry: () => void;
-  onExit: () => void;
-}) {
-  useEffect(() => {
-    successSound?.play();
-  }, []);
-
+// --- UI COMPONENTS ---
+function SuccessScreen({ onNextLevel, isLastLevel, strokes, onRetry, onExit, }: { onNextLevel: () => void; isLastLevel: boolean; strokes: number; onRetry: () => void; onExit: () => void; }) {
+  useEffect(() => { successSound?.play(); }, []);
   return (
-    <>
-      <div className="modal-backdrop">
-        <div className="modal-box">
-          <h1>{isLastLevel ? "GAME COMPLETE!" : "YAYY! SUCCESS 🎉"}</h1>
-          <p>
-            {isLastLevel
-              ? "You've beaten all the levels!"
-              : "You completed the hole!"}
-          </p>
-          <p className="strokes-display">Strokes: {strokes}</p>
-          <div className="button-container">
-            {!isLastLevel && (
-              <button onClick={onNextLevel} className="btn-primary">
-                Next Level
-              </button>
-            )}
-            {isLastLevel && (
-              <button onClick={onNextLevel} className="btn-primary">
-                Play Again
-              </button>
-            )}
-            <button onClick={onRetry} className="btn-secondary">
-              Retry
-            </button>
-            <button onClick={onExit} className="btn-tertiary">
-              Exit
-            </button>
-          </div>
-        </div>
-      </div>
-      <style jsx>{`
-        .modal-backdrop {
-          position: absolute; top: 0; left: 0; z-index: 50;
-          width: 100%; height: 100%;
-          background-color: rgba(0, 0, 0, 0.7);
-          display: flex; align-items: center; justify-content: center;
-          text-align: center;
-        }
-        .modal-box {
-          max-width: 32rem; border-radius: 0.75rem;
-          background-color: #1e293b; padding: 2rem;
-          box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-          color: white;
-        }
-        h1 { margin-bottom: 1rem; font-size: 3rem; font-weight: 700; }
-        p { margin-bottom: 0.5rem; font-size: 1.25rem; color: #cbd5e1; }
-        .strokes-display { font-size: 1.5rem; font-weight: bold; margin-bottom: 2rem; }
-        .button-container {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        button {
-          border-radius: 0.5rem;
-          padding: 0.75rem 1.5rem; font-size: 1.1rem; font-weight: 700;
-          color: white; transition: background-color 0.2s;
-          border: none; cursor: pointer;
-        }
-        .btn-primary { background-color: #16a34a; }
-        .btn-primary:hover { background-color: #15803d; }
-        .btn-secondary { background-color: #2563eb; }
-        .btn-secondary:hover { background-color: #1d4ed8; }
-        .btn-tertiary { background-color: #94a3b8; }
-        .btn-tertiary:hover { background-color: #64748b; }
-      `}</style>
-    </>
+    <> <div className="modal-backdrop"> <div className="modal-box"> <h1>{isLastLevel ? "GAME COMPLETE!" : "YAYY! SUCCESS 🎉"}</h1> <p>{isLastLevel ? "You've beaten all the levels!" : "You completed the hole!"}</p> <p className="strokes-display">Strokes: {strokes}</p> <div className="button-container"> {!isLastLevel && (<button onClick={onNextLevel} className="btn-primary">Next Level</button>)} {isLastLevel && (<button onClick={onNextLevel} className="btn-primary">Play Again</button>)} <button onClick={onRetry} className="btn-secondary">Retry</button> <button onClick={onExit} className="btn-tertiary">Exit</button> </div> </div> </div> <style jsx>{` .modal-backdrop { position: absolute; top: 0; left: 0; z-index: 50; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; text-align: center; } .modal-box { max-width: 32rem; border-radius: 0.75rem; background-color: #1e293b; padding: 2rem; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); color: white; } h1 { margin-bottom: 1rem; font-size: 3rem; font-weight: 700; } p { margin-bottom: 0.5rem; font-size: 1.25rem; color: #cbd5e1; } .strokes-display { font-size: 1.5rem; font-weight: bold; margin-bottom: 2rem; } .button-container { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; } button { border-radius: 0.5rem; padding: 0.75rem 1.5rem; font-size: 1.1rem; font-weight: 700; color: white; transition: background-color 0.2s; border: none; cursor: pointer; } .btn-primary { background-color: #16a34a; } .btn-primary:hover { background-color: #15803d; } .btn-secondary { background-color: #2563eb; } .btn-secondary:hover { background-color: #1d4ed8; } .btn-tertiary { background-color: #94a3b8; } .btn-tertiary:hover { background-color: #64748b; } `}</style> </>
   );
 }
 
 function LevelSelectionMenu({ onSelectLevel }: { onSelectLevel: (index: number) => void }) {
   return (
-    <>
-      <div className="menu-container">
-        <div className="menu-box">
-          <div className="header">
-            <h1>CloneFest 2025 Minigolf</h1>
-            <p>3D Web-based Minigolf Challenge</p>
-          </div>
-          <h2>Select a Level</h2>
-          <div className="button-group">
-            <button onClick={() => onSelectLevel(0)}>Easy</button>
-            <button onClick={() => onSelectLevel(1)}>Medium</button>
-            <button onClick={() => onSelectLevel(2)}>Hard</button>
-            <button onClick={() => onSelectLevel(3)}>Complex</button>
-          </div>
-        </div>
-      </div>
-      <style jsx>{`
-        .menu-container {
-          display: flex; align-items: center; justify-content: center;
-          height: 100%;
-          background: linear-gradient(to bottom right, #1e293b, #0f172a);
-        }
-        .menu-box { text-align: center; padding: 1rem; }
-        .header {
-          margin-bottom: 4rem;
-        }
-        .header h1 {
-          font-size: 3.5rem;
-          font-weight: 800;
-          color: #e2e8f0;
-          text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-          margin-bottom: 0.5rem;
-        }
-        .header p {
-          font-size: 1.25rem;
-          color: #94a3b8;
-        }
-        h2 { 
-            color: white; 
-            font-size: 2.25rem; 
-            font-weight: bold; 
-            margin-bottom: 2rem; 
-        }
-        .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; }
-        button {
-          padding: 1rem 2rem; background-color: #2563eb;
-          border-radius: 0.5rem; color: white;
-          transition: background-color 0.2s; border: none;
-          cursor: pointer; font-size: 1.25rem; font-weight: bold;
-        }
-        button:hover { background-color: #1d4ed8; }
-      `}</style>
-    </>
+    <> <div className="menu-container"> <div className="menu-box"> <h1>Select a Level</h1> <div className="button-group"> <button onClick={() => onSelectLevel(0)}>Easy</button> <button onClick={() => onSelectLevel(1)}>Medium</button> <button onClick={() => onSelectLevel(2)}>Hard</button> <button onClick={() => onSelectLevel(3)}>Complex</button> <button onClick={() => onSelectLevel(4)}>Expert</button> </div> </div> </div> <style jsx>{` .menu-container { display: flex; align-items: center; justify-content: center; height: 100%; background: linear-gradient(to bottom right, #1e293b, #0f172a); } .menu-box { text-align: center; } h1 { color: white; font-size: 3rem; font-weight: bold; margin-bottom: 2rem; } .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; } button { padding: 1rem 2rem; background-color: #2563eb; border-radius: 0.5rem; color: white; transition: background-color 0.2s; border: none; cursor: pointer; font-size: 1.25rem; font-weight: bold; } button:hover { background-color: #1d4ed8; } `}</style> </>
   );
 }
 
-
 // --- MAIN GAME COMPONENT ---
-
 export default function MinigolfGame() {
-    const mountRef = useRef<HTMLDivElement>(null);
-    const velocityRef = useRef(new THREE.Vector3());
-    
-    const [strokes, setStrokes] = useState(0);
-    const [gameState, setGameState] = useState("menu");
-    const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
+  const mountRef = useRef<HTMLDivElement>(null);
+  const velocityRef = useRef(new THREE.Vector3());
+  const [strokes, setStrokes] = useState(0);
+  const [gameState, setGameState] = useState("menu");
+  const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
 
-    const handleLevelSelect = (index: number) => {
-        setCurrentLevelIndex(index);
-        setStrokes(0);
-        setGameState("playing");
+  const handleLevelSelect = (index: number) => { setCurrentLevelIndex(index); setStrokes(0); setGameState("playing"); };
+  const handleNextLevel = () => { const nextLevelIndex = currentLevelIndex + 1; if (nextLevelIndex < levelData.length) { handleLevelSelect(nextLevelIndex); } else { setGameState("menu"); } };
+  const handleRetry = () => { handleLevelSelect(currentLevelIndex); };
+  const handleExit = () => { setGameState("menu"); };
+
+  useEffect(() => {
+    if (!mountRef.current || gameState !== "playing") return;
+    const currentLevel = levelData[currentLevelIndex] as any;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xbfd1e5);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 15, 20);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    mountRef.current.innerHTML = "";
+    mountRef.current.appendChild(renderer.domElement);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    if (!currentLevel.useGravity) {
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x3a5f0b }));
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+    } else {
+      if (currentLevel.grounds) {
+        currentLevel.grounds.forEach((g: any) => {
+          const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(g.w, g.d), new THREE.MeshStandardMaterial({ color: g.color || 0x4A6D23 }));
+          groundMesh.rotation.x = -Math.PI / 2;
+          groundMesh.position.set(g.x, g.y, g.z);
+          scene.add(groundMesh);
+        });
+      }
+      if (currentLevel.ramps) {
+        currentLevel.ramps.forEach((rampData: any) => {
+          const width = rampData.mesh?.w || 4;
+          const depth = rampData.mesh?.d || 5;
+          const height = rampData.yEnd - rampData.yStart;
+          const segmentsW = 20;
+          const segmentsD = 40;
+          const geometry = new THREE.PlaneGeometry(width, depth, segmentsW, segmentsD);
+          const pos = geometry.attributes.position as THREE.BufferAttribute;
+          for (let i = 0; i < pos.count; i++) {
+            const z = pos.getY(i);
+            const t = (z + depth / 2) / depth;
+            const baseY = rampData.yStart + (rampData.yEnd - rampData.yStart) * t;
+            const curveOffset = -height * 1 * (t - t * t);
+            pos.setZ(i, baseY + curveOffset);
+          }
+          pos.needsUpdate = true;
+          geometry.computeVertexNormals();
+          const material = new THREE.MeshStandardMaterial({
+            color: rampData.mesh?.color || 0x8B4513,
+            side: THREE.DoubleSide,
+          });
+          const rampMesh = new THREE.Mesh(geometry, material);
+          rampMesh.rotation.x = -Math.PI / 2;
+          rampMesh.position.set(
+            rampData.mesh?.x || 0,
+            (rampData.mesh?.y || 0) - 1.5,
+            (rampData.mesh?.z || 0)
+          );
+          scene.add(rampMesh);
+        });
+      }
+    }
+
+    const createTrapMesh = (trap: any, color: number | string) => {
+      const trapWidth = trap.xMax - trap.xMin;
+      const trapDepth = trap.zMax - trap.zMin;
+      const trapGeo = new THREE.PlaneGeometry(trapWidth, trapDepth);
+      const trapMat = new THREE.MeshStandardMaterial({ color });
+      const trapMesh = new THREE.Mesh(trapGeo, trapMat);
+      trapMesh.rotation.x = -Math.PI / 2;
+      trapMesh.position.set(trap.xMin + trapWidth / 2, 0.01, trap.zMin + trapDepth / 2);
+      scene.add(trapMesh);
     };
 
-    const handleNextLevel = () => {
-        const nextLevelIndex = currentLevelIndex + 1;
-        if (nextLevelIndex < levelData.length) {
-            handleLevelSelect(nextLevelIndex);
-        } else {
-            setGameState("menu");
+    if (currentLevel.sandTrap) createTrapMesh(currentLevel.sandTrap, 0xc2b280);
+    if (currentLevel.water) createTrapMesh(currentLevel.water, 0x3366ff);
+    if (currentLevel.slope) {
+      const slope = currentLevel.slope;
+      const slopeDepth = 10 - slope.zStart;
+      const slopeGeo = new THREE.PlaneGeometry(20, slopeDepth);
+      const slopeMat = new THREE.MeshStandardMaterial({ color: 0x2e4b09 });
+      const slopeMesh = new THREE.Mesh(slopeGeo, slopeMat);
+      slopeMesh.rotation.x = -Math.PI / 2;
+      slopeMesh.position.set(0, 0.015, slope.zStart + slopeDepth / 2);
+      scene.add(slopeMesh);
+    }
+    
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+    const obstacles: { mesh: THREE.Object3D, type: string }[] = [];
+    if (currentLevel.walls) {
+      currentLevel.walls.forEach((w: any) => {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
+        wall.position.set(w.x, w.h / 2 + (w.y || 0), w.z);
+        scene.add(wall);
+        obstacles.push({ mesh: wall, type: w.type });
+      });
+    }
+
+    const movingWallMeshes: THREE.Mesh[] = [];
+    if (currentLevel.movingWalls) {
+      currentLevel.movingWalls.forEach((w: any) => {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
+        wall.position.set(w.x, w.h / 2, w.z);
+        scene.add(wall);
+        obstacles.push({ mesh: wall, type: w.type });
+        movingWallMeshes.push(wall);
+      });
+    }
+
+    if (currentLevel.rocks) {
+      const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 });
+      currentLevel.rocks.forEach((r: any) => {
+        const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r.size, 1), rockMaterial);
+        rock.position.set(r.x, r.size / 2, r.z);
+        scene.add(rock);
+        obstacles.push({ mesh: rock, type: r.type });
+      });
+    }
+
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x000000 }));
+    hole.position.copy(currentLevel.holePos);
+    scene.add(hole);
+    const flag = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.2, 16), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+    flag.position.copy(currentLevel.holePos).add(new THREE.Vector3(0, 1.15, 0));
+    scene.add(flag);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 32, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    ball.position.copy(currentLevel.ballStart);
+    scene.add(ball);
+
+    const previewDots: THREE.Mesh[] = [];
+    const dotGeom = new THREE.SphereGeometry(0.1, 8, 8);
+    const dotMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    for (let i = 0; i < 10; i++) { const dot = new THREE.Mesh(dotGeom, dotMat); dot.visible = false; scene.add(dot); previewDots.push(dot); }
+    let isDragging = false;
+    let dragStart = new THREE.Vector2();
+
+    function onMouseDown(e: MouseEvent) { if (screenOverBall(e.clientX, e.clientY) && velocityRef.current.lengthSq() < 0.001) { isDragging = true; controls.enabled = false; dragStart.set(e.clientX, e.clientY); } }
+    function onMouseMove(e: MouseEvent) { if (!isDragging) return; const dragEnd = new THREE.Vector2(e.clientX, e.clientY); const dragVector = new THREE.Vector2().subVectors(dragStart, dragEnd); const power = dragVector.length() * 0.02; const angle = Math.atan2(dragVector.y, dragVector.x); const dir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize(); previewDots.forEach((dot, i) => { const t = (i + 1) / previewDots.length; dot.position.copy(ball.position.clone().add(dir.clone().multiplyScalar(power * t * 3))); dot.visible = true; }); }
+    function onMouseUp(e: MouseEvent) { if (!isDragging) return; isDragging = false; controls.enabled = true; previewDots.forEach((dot) => (dot.visible = false)); const dragEnd = new THREE.Vector2(e.clientX, e.clientY); const dragVector = new THREE.Vector2().subVectors(dragStart, dragEnd); velocityRef.current.set(dragVector.x * 0.006, 0, dragVector.y * 0.006); setStrokes((s) => s + 1); }
+
+    renderer.domElement.addEventListener("mousedown", onMouseDown);
+    renderer.domElement.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    let collidingObstacle: THREE.Object3D | null = null;
+    let animationFrameId: number;
+    function animate() {
+      animationFrameId = requestAnimationFrame(animate);
+
+      if (currentLevel.useGravity) {
+        velocityRef.current.y -= GRAVITY;
+        ball.position.add(velocityRef.current);
+        let onSurface = false;
+        if (currentLevel.ramps) {
+          currentLevel.ramps.forEach((ramp: any) => {
+            if (ball.position.x > ramp.xMin && ball.position.x < ramp.xMax && ball.position.z < ramp.zStart && ball.position.z > ramp.zEnd) {
+              const t = (ramp.zStart - ball.position.z) / (ramp.zStart - ramp.zEnd);
+              const height = ramp.yEnd - ramp.yStart;
+              const baseY = ramp.yStart + height * t;
+              const curveFactor = 1;
+              const rampYCurved = baseY - height * curveFactor * (t - t * t);
+              const surfaceY = rampYCurved + BALL_RADIUS;
+              if (ball.position.y <= surfaceY) {
+                ball.position.y = surfaceY;
+                velocityRef.current.y = 0;
+                onSurface = true;
+                const length = Math.abs(ramp.zStart - ramp.zEnd);
+                const baseAngle = Math.atan2(height, length);
+                const slopeGravity = GRAVITY * Math.sin(baseAngle);
+                velocityRef.current.z += slopeGravity;
+              }
+            }
+          });
         }
-    };
-    
-    const handleRetry = () => {
-        handleLevelSelect(currentLevelIndex);
-    };
-
-    const handleExit = () => {
-        setGameState("menu");
-    };
-    
-    useEffect(() => {
-        if (!mountRef.current || gameState !== "playing") return;
-
-        const currentLevel = levelData[currentLevelIndex];
-
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xbfd1e5);
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 15, 20);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        mountRef.current.innerHTML = "";
-        mountRef.current.appendChild(renderer.domElement);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(5, 10, 7);
-        scene.add(dirLight);
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x3a5f0b }));
-        floor.rotation.x = -Math.PI / 2;
-        scene.add(floor);
-
-        const createTrapMesh = (trap: any, color: number | string) => {
-            const trapWidth = trap.xMax - trap.xMin;
-            const trapDepth = trap.zMax - trap.zMin;
-            const trapGeo = new THREE.PlaneGeometry(trapWidth, trapDepth);
-            const trapMat = new THREE.MeshStandardMaterial({ color });
-            const trapMesh = new THREE.Mesh(trapGeo, trapMat);
-            trapMesh.rotation.x = -Math.PI / 2;
-            trapMesh.position.set(trap.xMin + trapWidth / 2, 0.01, trap.zMin + trapDepth / 2);
-            scene.add(trapMesh);
-        };
-
-        if (currentLevel.sandTrap) createTrapMesh(currentLevel.sandTrap, 0xc2b280);
-        if (currentLevel.water) createTrapMesh(currentLevel.water, 0x3366ff);
+        if (!onSurface && currentLevel.grounds) {
+          currentLevel.grounds.forEach((ground: any) => {
+            const groundTop = ground.y + BALL_RADIUS;
+            if (ball.position.x > ground.x - ground.w / 2 && ball.position.x < ground.x + ground.w / 2 && ball.position.z > ground.z - ground.d / 2 && ball.position.z < ground.z + ground.d / 2 && ball.position.y <= groundTop) {
+              ball.position.y = groundTop;
+              velocityRef.current.y = 0;
+              onSurface = true;
+            }
+          });
+        }
+        if (onSurface) {
+          velocityRef.current.x *= currentLevel.friction;
+          velocityRef.current.z *= currentLevel.friction;
+        }
+        if (ball.position.y < -20) {
+          ball.position.copy(currentLevel.ballStart);
+          velocityRef.current.set(0, 0, 0);
+          setStrokes(s => s + 1);
+        }
+      } else {
+        ball.position.add(velocityRef.current);
+        let friction = currentLevel.friction;
+        if (currentLevel.sandTrap) {
+            const trap = currentLevel.sandTrap;
+            if (ball.position.x > trap.xMin && ball.position.x < trap.xMax && ball.position.z > trap.zMin && ball.position.z < trap.zMax) {
+                friction = trap.friction;
+            }
+        }
+        velocityRef.current.multiplyScalar(friction);
         if (currentLevel.slope) {
-            const slope = currentLevel.slope;
-            const slopeDepth = 10 - slope.zStart;
-            const slopeGeo = new THREE.PlaneGeometry(20, slopeDepth);
-            const slopeMat = new THREE.MeshStandardMaterial({ color: 0x2e4b09 });
-            const slopeMesh = new THREE.Mesh(slopeGeo, slopeMat);
-            slopeMesh.rotation.x = -Math.PI / 2;
-            slopeMesh.position.set(0, 0.015, slope.zStart + slopeDepth / 2);
-            scene.add(slopeMesh);
-        }
-        
-        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
-        const obstacles: { mesh: THREE.Object3D, type: string }[] = [];
-
-        if (currentLevel.walls) {
-            currentLevel.walls.forEach(w => {
-                const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
-                wall.position.set(w.x, w.h / 2, w.z);
-                scene.add(wall);
-                obstacles.push({ mesh: wall, type: w.type });
-            });
-        }
-
-        const movingWallMeshes: THREE.Mesh[] = [];
-        if (currentLevel.movingWalls) {
-            currentLevel.movingWalls.forEach(w => {
-                const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
-                wall.position.set(w.x, w.h / 2, w.z);
-                scene.add(wall);
-                obstacles.push({ mesh: wall, type: w.type });
-                movingWallMeshes.push(wall);
-            });
-        }
-
-        if (currentLevel.rocks) {
-            const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 });
-            currentLevel.rocks.forEach(r => {
-                const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r.size, 1), rockMaterial);
-                rock.position.set(r.x, r.size / 2, r.z);
-                scene.add(rock);
-                obstacles.push({ mesh: rock, type: r.type });
-            });
-        }
-
-        const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x000000 }));
-        hole.position.copy(currentLevel.holePos);
-        scene.add(hole);
-        
-        const flag = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.2, 16), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        flag.position.copy(currentLevel.holePos).add(new THREE.Vector3(0, 1.15, 0));
-        scene.add(flag);
-
-        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-        ball.position.copy(currentLevel.ballStart);
-        scene.add(ball);
-
-        const previewDots: THREE.Mesh[] = [];
-        const dotGeom = new THREE.SphereGeometry(0.1, 8, 8);
-        const dotMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-        for (let i = 0; i < 10; i++) {
-            const dot = new THREE.Mesh(dotGeom, dotMat);
-            dot.visible = false;
-            scene.add(dot);
-            previewDots.push(dot);
-        }
-        
-        let isDragging = false;
-        let dragStart = new THREE.Vector2();
-
-        function onMouseDown(e: MouseEvent) {
-            if (screenOverBall(e.clientX, e.clientY) && velocityRef.current.lengthSq() < 0.001) {
-                isDragging = true;
-                controls.enabled = false;
-                dragStart.set(e.clientX, e.clientY);
-            }
-        }
-
-        function onMouseMove(e: MouseEvent) {
-            if (!isDragging) return;
-            const dragEnd = new THREE.Vector2(e.clientX, e.clientY);
-            const dragVector = new THREE.Vector2().subVectors(dragStart, dragEnd);
-            const power = dragVector.length() * 0.02;
-            const angle = Math.atan2(dragVector.y, dragVector.x);
-            const dir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
-            previewDots.forEach((dot, i) => {
-                const t = (i + 1) / previewDots.length;
-                dot.position.copy(ball.position.clone().add(dir.clone().multiplyScalar(power * t * 3)));
-                dot.visible = true;
-            });
-        }
-        
-        function onMouseUp(e: MouseEvent) {
-            if (!isDragging) return;
-            isDragging = false;
-            controls.enabled = true;
-            previewDots.forEach((dot) => (dot.visible = false));
-            
-            const dragEnd = new THREE.Vector2(e.clientX, e.clientY);
-            const dragVector = new THREE.Vector2().subVectors(dragStart, dragEnd);
-            velocityRef.current.set(dragVector.x * 0.006, 0, dragVector.y * 0.006);
-            setStrokes((s) => s + 1);
-        }
-
-        renderer.domElement.addEventListener("mousedown", onMouseDown);
-        renderer.domElement.addEventListener("mousemove", onMouseMove);
-        window.addEventListener("mouseup", onMouseUp);
-
-        let collidingObstacle: THREE.Object3D | null = null;
-        let animationFrameId: number;
-        function animate() {
-            animationFrameId = requestAnimationFrame(animate);
-            
-            if (currentLevel.movingWalls) {
-                const time = Date.now();
-                currentLevel.movingWalls.forEach((wallData, index) => {
-                    const wallMesh = movingWallMeshes[index];
-                    if (wallData.axis === 'x') {
-                        wallMesh.position.x = Math.sin(time * wallData.speed) * wallData.range;
-                    } else {
-                        wallMesh.position.z = Math.sin(time * wallData.speed) * wallData.range;
-                    }
-                });
-            }
-
-            if (currentLevel.water) {
-                const water = currentLevel.water;
-                if (ball.position.x > water.xMin && ball.position.x < water.xMax && ball.position.z > water.zMin && ball.position.z < water.zMax) {
-                    waterSound?.play();
-                    ball.position.copy(currentLevel.ballStart);
-                    velocityRef.current.set(0, 0, 0);
-                    setStrokes(s => s + 1);
-                }
-            }
-
-            ball.position.add(velocityRef.current);
-            
-            let friction = currentLevel.friction;
-            if (currentLevel.sandTrap) {
-                const trap = currentLevel.sandTrap;
-                if (ball.position.x > trap.xMin && ball.position.x < trap.xMax && ball.position.z > trap.zMin && ball.position.z < trap.zMax) {
-                    friction = trap.friction;
-                }
-            }
-            velocityRef.current.multiplyScalar(friction);
-
-            if (currentLevel.slope && ball.position.z > currentLevel.slope.zStart && ball.position.z < 10) {
+            if (ball.position.z > currentLevel.slope.zStart && ball.position.z < 10) {
                 velocityRef.current.add(currentLevel.slope.force);
             }
-
-            let collisionDetectedThisFrame = false;
-            obstacles.forEach(obstacle => {
-                const obstacleBox = new THREE.Box3().setFromObject(obstacle.mesh);
-                const ballBox = new THREE.Box3().setFromObject(ball);
-                
-                if (obstacleBox.intersectsBox(ballBox)) {
-                    collisionDetectedThisFrame = true;
-                    if (collidingObstacle !== obstacle.mesh) {
-                        if (currentLevelIndex !== 2) { // Don't play sounds on Hard level
-                            if (obstacle.type === 'wall') {
-                                hitSound?.play();
-                            } else if (obstacle.type === 'rock') {
-                                collisionSound?.play();
-                            }
-                        }
-                        collidingObstacle = obstacle.mesh;
-                    }
-                    
-                    const overlap = ballBox.clone().intersect(obstacleBox);
-                    const overlapSize = overlap.getSize(new THREE.Vector3());
-                    if (overlapSize.x < overlapSize.z) {
-                        velocityRef.current.x *= -0.7;
-                        ball.position.x += (ball.position.x > obstacle.mesh.position.x ? 1 : -1) * overlapSize.x;
-                    } else {
-                        velocityRef.current.z *= -0.7;
-                        ball.position.z += (ball.position.z > obstacle.mesh.position.z ? 1 : -1) * overlapSize.z;
-                    }
-                }
-            });
-
-            if (!collisionDetectedThisFrame) {
-                collidingObstacle = null;
-            }
-
-            if (ball.position.distanceTo(hole.position) < 0.6 && velocityRef.current.length() < 0.05) {
-                velocityRef.current.set(0, 0, 0);
-                setGameState("success");
-            }
-
-            controls.update();
-            renderer.render(scene, camera);
         }
+      }
 
-        function screenOverBall(x: number, y: number) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            const mouse = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(mouse, camera);
-            return raycaster.intersectObject(ball).length > 0;
+      if (currentLevel.movingWalls) {
+        const time = Date.now();
+        currentLevel.movingWalls.forEach((wallData: any, index: number) => { const wallMesh = movingWallMeshes[index]; if (wallData.axis === 'x') { wallMesh.position.x = Math.sin(time * wallData.speed) * wallData.range; } else { wallMesh.position.z = Math.sin(time * wallData.speed) * wallData.range; } });
+      }
+
+      let collisionDetectedThisFrame = false;
+      obstacles.forEach(obstacle => {
+        const obstacleBox = new THREE.Box3().setFromObject(obstacle.mesh);
+        const ballBox = new THREE.Box3().setFromObject(ball);
+        if (obstacleBox.intersectsBox(ballBox)) {
+          collisionDetectedThisFrame = true;
+          if (collidingObstacle !== obstacle.mesh) {
+            if (obstacle.type === 'wall') hitSound?.play();
+            collidingObstacle = obstacle.mesh;
+          }
+          const overlap = ballBox.clone().intersect(obstacleBox);
+          const overlapSize = overlap.getSize(new THREE.Vector3());
+          if (overlapSize.x < overlapSize.z) {
+            velocityRef.current.x *= -0.7;
+            ball.position.x += (ball.position.x > obstacle.mesh.position.x ? 1 : -1) * overlapSize.x;
+          } else {
+            velocityRef.current.z *= -0.7;
+            ball.position.z += (ball.position.z > obstacle.mesh.position.z ? 1 : -1) * overlapSize.z;
+          }
         }
-        
-        animate();
+      });
+      if (!collisionDetectedThisFrame) { collidingObstacle = null; }
 
-        return () => {
-            window.removeEventListener("mouseup", onMouseUp);
-            renderer.domElement.removeEventListener("mousedown", onMouseDown);
-            renderer.domElement.removeEventListener("mousemove", onMouseMove);
-            cancelAnimationFrame(animationFrameId);
-            renderer.dispose();
-        };
-    }, [gameState, currentLevelIndex]);
+      if (currentLevel.water) {
+        const water = currentLevel.water;
+        if (ball.position.x > water.xMin && ball.position.x < water.xMax && ball.position.z > water.zMin && ball.position.z < water.zMax) {
+          waterSound?.play();
+          ball.position.copy(currentLevel.ballStart);
+          velocityRef.current.set(0, 0, 0);
+          setStrokes(s => s + 1);
+        }
+      }
 
-    return (
-        <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
-            {gameState === "menu" && <LevelSelectionMenu onSelectLevel={handleLevelSelect} />}
+      if (ball.position.distanceTo(hole.position) < 0.6 && velocityRef.current.length() < 0.05) {
+        velocityRef.current.set(0, 0, 0);
+        setGameState("success");
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
 
-            {(gameState === "playing" || gameState === "success") && (
-                <>
-                    <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-                    <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'rgba(0, 0, 0, 0.6)', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.75rem' }}>
-                        <p style={{ fontWeight: 'bold' }}>{levelData[currentLevelIndex].name}</p>
-                        <p>Strokes: {strokes}</p>
-                    </div>
-                    <button onClick={() => setGameState("menu")} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, padding: '0.5rem 1rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>
-                        Exit
-                    </button>
-                    {currentLevelIndex === 0 && gameState === 'playing' && (
-                        <div style={{
-                            position: 'absolute',
-                            bottom: '1rem',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            background: 'rgba(0, 0, 0, 0.6)',
-                            color: 'white',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.75rem',
-                            textAlign: 'center',
-                            fontSize: '0.9rem',
-                            zIndex: 50
-                        }}>
-                            <p><b>Rotate:</b> Left Mouse Drag | <b>Pan:</b> Right Mouse Drag | <b>Zoom:</b> Scroll Wheel</p>
-                        </div>
-                    )}
-                </>
-            )}
+    function screenOverBall(x: number, y: number) { const rect = renderer.domElement.getBoundingClientRect(); const mouse = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1); const raycaster = new THREE.Raycaster(); raycaster.setFromCamera(mouse, camera); return raycaster.intersectObject(ball).length > 0; }
 
-            {gameState === "success" && (
-                <SuccessScreen
-                    onNextLevel={handleNextLevel}
-                    isLastLevel={currentLevelIndex === levelData.length - 1}
-                    strokes={strokes}
-                    onRetry={handleRetry}
-                    onExit={handleExit}
-                />
-            )}
-        </div>
-    );
+    animate();
+    return () => { window.removeEventListener("mouseup", onMouseUp); renderer.domElement.removeEventListener("mousedown", onMouseDown); renderer.domElement.removeEventListener("mousemove", onMouseMove); cancelAnimationFrame(animationFrameId); renderer.dispose(); };
+  }, [gameState, currentLevelIndex]);
+
+  return (
+    <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
+      {gameState === "menu" && <LevelSelectionMenu onSelectLevel={handleLevelSelect} />}
+      {(gameState === "playing" || gameState === "success") && (
+        <>
+          <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+          <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'rgba(0, 0, 0, 0.6)', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.75rem' }}>
+            <p style={{ fontWeight: 'bold' }}>{levelData[currentLevelIndex].name}</p>
+            <p>Strokes: {strokes}</p>
+          </div>
+          <button onClick={() => setGameState("menu")} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, padding: '0.5rem 1rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>
+            Exit
+          </button>
+        </>
+      )}
+      {gameState === "success" && (<SuccessScreen onNextLevel={handleNextLevel} isLastLevel={currentLevelIndex === levelData.length - 1} strokes={strokes} onRetry={handleRetry} onExit={handleExit} />)}
+    </div>
+  );
 }
