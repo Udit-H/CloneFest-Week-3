@@ -4,6 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { useEffect, useRef, useState } from "react";
 
 // --- LEVEL DATA ---
+// Medium and Hard levels now have sand traps and a slope.
 const levelData = [
   {
     name: 'Easy: The Starter',
@@ -11,38 +12,46 @@ const levelData = [
     holePos: new THREE.Vector3(0, 0.05, 8),
     friction: 0.97,
     walls: [
-      { x: 0, z: -10, w: 20, h: 1, d: 0.5 },
-      { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
-      { x: -10, z: 0, w: 0.5, h: 1, d: 20 },
-      { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
+      { x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
+      { x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
     ],
   },
   {
-    name: 'Medium: The Zigzag',
+    name: 'Medium: Sandy Zigzag',
     ballStart: new THREE.Vector3(-8, 0.4, -8),
     holePos: new THREE.Vector3(8, 0.05, 8),
     friction: 0.96,
     walls: [
-      { x: 0, z: -10, w: 20, h: 1, d: 0.5 },
-      { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
-      { x: -10, z: 0, w: 0.5, h: 1, d: 20 },
-      { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
-      { x: 0, z: 0, w: 0.5, h: 1, d: 15 }, // Central obstacle wall
+      { x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
+      { x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
+      { x: 0, z: 0, w: 0.5, h: 1, d: 15 },
     ],
+    sandTrap: {
+      xMin: 2, xMax: 8,
+      zMin: -2, zMax: 2,
+      friction: 0.88,
+    }
   },
   {
-    name: 'Hard: The Trap',
+    name: 'Hard: The Sloped Pond',
     ballStart: new THREE.Vector3(0, 0.4, -8),
     holePos: new THREE.Vector3(0, 0.05, 8),
-    friction: 0.94,
+    friction: 0.95,
     walls: [
-      { x: 0, z: -10, w: 20, h: 1, d: 0.5 },
-      { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
-      { x: -10, z: 0, w: 0.5, h: 1, d: 20 },
-      { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
-      { x: 5, z: 0, w: 0.5, h: 1, d: 10 },
-      { x: -5, z: 0, w: 0.5, h: 1, d: 10 },
+      { x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
+      { x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
+      { x: 5, z: -2.5, w: 0.5, h: 1, d: 15 }, 
+      { x: -5, z: 2.5, w: 0.5, h: 1, d: 15 },
     ],
+    sandTrap: {
+      xMin: -3, xMax: 3,
+      zMin: -3, zMax: 3,
+      friction: 0.85,
+    },
+    slope: {
+      zStart: 3,
+      force: new THREE.Vector3(0, 0, 0.002)
+    }
   },
 ];
 
@@ -157,7 +166,7 @@ export default function MinigolfGame() {
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xbfd1e5);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 10, 20);
+        camera.position.set(0, 15, 20);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         mountRef.current.innerHTML = "";
@@ -172,9 +181,34 @@ export default function MinigolfGame() {
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x3a5f0b }));
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
+
+        // Add sand trap visual
+        if (currentLevel.sandTrap) {
+            const trap = currentLevel.sandTrap;
+            const trapWidth = trap.xMax - trap.xMin;
+            const trapDepth = trap.zMax - trap.zMin;
+            const trapGeo = new THREE.PlaneGeometry(trapWidth, trapDepth);
+            const trapMat = new THREE.MeshStandardMaterial({ color: 0xc2b280 });
+            const trapMesh = new THREE.Mesh(trapGeo, trapMat);
+            trapMesh.rotation.x = -Math.PI / 2;
+            trapMesh.position.set(trap.xMin + trapWidth / 2, 0.01, trap.zMin + trapDepth / 2);
+            scene.add(trapMesh);
+        }
+
+        // Add slope visual
+        if (currentLevel.slope) {
+            const slope = currentLevel.slope;
+            const slopeDepth = 10 - slope.zStart; // Assuming slope goes to the end
+            const slopeGeo = new THREE.PlaneGeometry(19, slopeDepth);
+            const slopeMat = new THREE.MeshStandardMaterial({ color: 0x2e4b09 }); // Darker green
+            const slopeMesh = new THREE.Mesh(slopeGeo, slopeMat);
+            slopeMesh.rotation.x = -Math.PI / 2;
+            slopeMesh.position.set(0, 0.015, slope.zStart + slopeDepth / 2);
+            scene.add(slopeMesh);
+        }
         
         const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
-        const walls: THREE.Mesh[] = []; // Store walls for collision detection
+        const walls: THREE.Mesh[] = [];
         currentLevel.walls.forEach(w => {
             const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
             wall.position.set(w.x, w.h / 2, w.z);
@@ -195,8 +229,6 @@ export default function MinigolfGame() {
         scene.add(ball);
         ballRef.current = ball;
 
-        const ballRadius = 0.4;
-        
         const previewDots: THREE.Mesh[] = [];
         const dotGeom = new THREE.SphereGeometry(0.1, 8, 8);
         const dotMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
@@ -260,30 +292,40 @@ export default function MinigolfGame() {
         function animate() {
             animationFrameId = requestAnimationFrame(animate);
             ball.position.add(velocityRef.current);
-            velocityRef.current.multiplyScalar(currentLevel.friction);
 
-            // --- NEW WALL COLLISION LOGIC ---
+            // --- Updated Physics Logic ---
+            let friction = currentLevel.friction;
+            // Check for sand trap
+            if (currentLevel.sandTrap) {
+                const trap = currentLevel.sandTrap;
+                if (ball.position.x > trap.xMin && ball.position.x < trap.xMax && ball.position.z > trap.zMin && ball.position.z < trap.zMax) {
+                    friction = trap.friction;
+                }
+            }
+            velocityRef.current.multiplyScalar(friction);
+
+            // Check for slope
+            if (currentLevel.slope && ball.position.z > currentLevel.slope.zStart) {
+                velocityRef.current.add(currentLevel.slope.force);
+            }
+            // --- End Updated Physics Logic ---
+
             walls.forEach(wall => {
                 const wallBox = new THREE.Box3().setFromObject(wall);
                 const ballBox = new THREE.Box3().setFromObject(ball);
                 
                 if (wallBox.intersectsBox(ballBox)) {
-                    // Find the overlap
                     const overlap = ballBox.clone().intersect(wallBox);
                     const overlapSize = overlap.getSize(new THREE.Vector3());
-
-                    // If width is smaller than depth, it's a side collision
                     if (overlapSize.x < overlapSize.z) {
-                        velocityRef.current.x *= -0.7; // Bounce
-                        // Move ball out of wall slightly to prevent sticking
+                        velocityRef.current.x *= -0.7;
                         ball.position.x += (ball.position.x > wall.position.x ? 1 : -1) * overlapSize.x;
-                    } else { // It's a front/back collision
-                        velocityRef.current.z *= -0.7; // Bounce
+                    } else {
+                        velocityRef.current.z *= -0.7;
                         ball.position.z += (ball.position.z > wall.position.z ? 1 : -1) * overlapSize.z;
                     }
                 }
             });
-            // --- END NEW LOGIC ---
 
             if (ball.position.distanceTo(hole.position) < 0.6 && velocityRef.current.length() < 0.05) {
                 velocityRef.current.set(0, 0, 0);
