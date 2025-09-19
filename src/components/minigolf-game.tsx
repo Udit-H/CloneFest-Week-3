@@ -86,6 +86,39 @@ const levelData = [
       { y: 0, type: 'wall', x: 0, z: 10, w: 8, h: 1, d: 0.5 },
       { y: 3, type: 'wall', x: -4, z: -6, w: 0.5, h: 1, d: 8 }, { y: 3, type: 'wall', x: 4, z: -6, w: 0.5, h: 1, d: 8 },
       { y: 3, type: 'wall', x: 0, z: -10, w: 8, h: 1, d: 0.5 },
+    ],
+    movingWalls: [
+      { type: 'wall', y: 3, x: 0, z: -6, w: 3, h: 2, d: 0.5, axis: 'x', range: 2.5, speed: 0.002 }
+    ]
+  },
+  {
+    name: 'Challenge: The Gauntlet',
+    ballStart: new THREE.Vector3(0, 0.4, -18),
+    holePos: new THREE.Vector3(0, 0.05, 18),
+    friction: 0.97,
+    walls: [
+      { type: 'wall', x: 0, z: -20, w: 12, h: 1, d: 0.5 },
+      { type: 'wall', x: 0, z: 20, w: 12, h: 1, d: 0.5 },
+      { type: 'wall', x: -6, z: 0, w: 0.5, h: 1, d: 40 },
+      { type: 'wall', x: 6, z: 0, w: 0.5, h: 1, d: 40 },
+      { type: 'wall', x: 0, z: -14, w: 6, h: 0.5, d: 0.5, y: 3.5 },
+      { type: 'wall', x: -2.75, z: -14, w: 0.5, h: 4, d: 0.5 },
+      { type: 'wall', x: 2.75, z: -14, w: 0.5, h: 4, d: 0.5 },
+      { type: 'wall', x: 0, z: -4, w: 6, h: 0.5, d: 0.5, y: 3.5 },
+      { type: 'wall', x: -2.75, z: -4, w: 0.5, h: 4, d: 0.5 },
+      { type: 'wall', x: 2.75, z: -4, w: 0.5, h: 4, d: 0.5 },
+      { type: 'wall', x: 0, z: 4, w: 6, h: 0.5, d: 0.5, y: 3.5 },
+      { type: 'wall', x: -2.75, z: 4, w: 0.5, h: 4, d: 0.5 },
+      { type: 'wall', x: 2.75, z: 4, w: 0.5, h: 4, d: 0.5 },
+      { type: 'wall', x: 0, z: 14, w: 6, h: 0.5, d: 0.5, y: 3.5 },
+      { type: 'wall', x: -2.75, z: 14, w: 0.5, h: 4, d: 0.5 },
+      { type: 'wall', x: 2.75, z: 14, w: 0.5, h: 4, d: 0.5 },
+    ],
+    movingWalls: [
+      { type: 'plank', axis: 'z', h: 3, w: 1.6, d: 0.4, pivot: { x: 0, y: 3.25, z: -14 }, speed: 0.002, range: Math.PI / 4, offset: 0 },
+      { type: 'plank', axis: 'z', h: 3, w: 1.6, d: 0.4, pivot: { x: 0, y: 3.25, z: -4 }, speed: 0.0022, range: Math.PI / 4, offset: Math.PI / 2 },
+      { type: 'plank', axis: 'z', h: 3, w: 1.6, d: 0.4, pivot: { x: 0, y: 3.25, z: 4 }, speed: 0.0018, range: Math.PI / 4, offset: Math.PI },
+      { type: 'plank', axis: 'z', h: 3, w: 1.6, d: 0.4, pivot: { x: 0, y: 3.25, z: 14 }, speed: 0.0024, range: Math.PI / 4, offset: Math.PI / 3 },
     ]
   },
 ];
@@ -100,7 +133,7 @@ function SuccessScreen({ onNextLevel, isLastLevel, strokes, onRetry, onExit, }: 
 
 function LevelSelectionMenu({ onSelectLevel }: { onSelectLevel: (index: number) => void }) {
   return (
-    <> <div className="menu-container"> <div className="menu-box"> <h1>Select a Level</h1> <div className="button-group"> <button onClick={() => onSelectLevel(0)}>Easy</button> <button onClick={() => onSelectLevel(1)}>Medium</button> <button onClick={() => onSelectLevel(2)}>Hard</button> <button onClick={() => onSelectLevel(3)}>Complex</button> <button onClick={() => onSelectLevel(4)}>Expert</button> </div> </div> </div> <style jsx>{` .menu-container { display: flex; align-items: center; justify-content: center; height: 100%; background: linear-gradient(to bottom right, #1e293b, #0f172a); } .menu-box { text-align: center; } h1 { color: white; font-size: 3rem; font-weight: bold; margin-bottom: 2rem; } .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; } button { padding: 1rem 2rem; background-color: #2563eb; border-radius: 0.5rem; color: white; transition: background-color 0.2s; border: none; cursor: pointer; font-size: 1.25rem; font-weight: bold; } button:hover { background-color: #1d4ed8; } `}</style> </>
+    <> <div className="menu-container"> <div className="menu-box"> <h1>Select a Level</h1> <div className="button-group"> <button onClick={() => onSelectLevel(0)}>Easy</button> <button onClick={() => onSelectLevel(1)}>Medium</button> <button onClick={() => onSelectLevel(2)}>Hard</button> <button onClick={() => onSelectLevel(3)}>Complex</button> <button onClick={() => onSelectLevel(4)}>Expert</button> <button onClick={() => onSelectLevel(5)}>Challenge</button> </div> </div> </div> <style jsx>{` .menu-container { display: flex; align-items: center; justify-content: center; height: 100%; background: linear-gradient(to bottom right, #1e293b, #0f172a); } .menu-box { text-align: center; } h1 { color: white; font-size: 3rem; font-weight: bold; margin-bottom: 2rem; } .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; } button { padding: 1rem 2rem; background-color: #2563eb; border-radius: 0.5rem; color: white; transition: background-color 0.2s; border: none; cursor: pointer; font-size: 1.25rem; font-weight: bold; } button:hover { background-color: #1d4ed8; } `}</style> </>
   );
 }
 
@@ -111,8 +144,15 @@ export default function MinigolfGame() {
   const [strokes, setStrokes] = useState(0);
   const [gameState, setGameState] = useState("menu");
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
+  const [levelComplete, setLevelComplete] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
 
-  const handleLevelSelect = (index: number) => { setCurrentLevelIndex(index); setStrokes(0); setGameState("playing"); };
+  const handleLevelSelect = (index: number) => {
+    setCurrentLevelIndex(index);
+    setStrokes(0);
+    setLevelComplete(false);
+    setGameState("playing");
+  };
   const handleNextLevel = () => { const nextLevelIndex = currentLevelIndex + 1; if (nextLevelIndex < levelData.length) { handleLevelSelect(nextLevelIndex); } else { setGameState("menu"); } };
   const handleRetry = () => { handleLevelSelect(currentLevelIndex); };
   const handleExit = () => { setGameState("menu"); };
@@ -123,7 +163,7 @@ export default function MinigolfGame() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xbfd1e5);
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 15, 20);
+    camera.position.set(0, 15, 25);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     mountRef.current.innerHTML = "";
@@ -135,8 +175,29 @@ export default function MinigolfGame() {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
+    const isLongLevel = [4, 5].includes(currentLevelIndex);
+    const floorWidth = isLongLevel ? 12 : 20;
+    const floorDepth = isLongLevel ? 40 : 20;
+
+    let floorMaterial;
+    if (isLongLevel) {
+      const createCheckerboardTexture = () => {
+        const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+        const context = canvas.getContext('2d')!;
+        const size = 64;
+        for (let x = 0; x < 2; x++) { for (let y = 0; y < 2; y++) { context.fillStyle = (x + y) % 2 === 0 ? '#4a7d1b' : '#3a5f0b'; context.fillRect(x * size, y * size, size, size); } }
+        return new THREE.CanvasTexture(canvas);
+      };
+      const texture = createCheckerboardTexture();
+      texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(floorWidth / 2, floorDepth / 2);
+      floorMaterial = new THREE.MeshStandardMaterial({ map: texture });
+    } else {
+      floorMaterial = new THREE.MeshStandardMaterial({ color: 0x3a5f0b });
+    }
+
     if (!currentLevel.useGravity) {
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x3a5f0b }));
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(floorWidth, floorDepth), floorMaterial);
       floor.rotation.x = -Math.PI / 2;
       scene.add(floor);
     } else {
@@ -192,7 +253,6 @@ export default function MinigolfGame() {
       trapMesh.position.set(trap.xMin + trapWidth / 2, 0.01, trap.zMin + trapDepth / 2);
       scene.add(trapMesh);
     };
-
     if (currentLevel.sandTrap) createTrapMesh(currentLevel.sandTrap, 0xc2b280);
     if (currentLevel.water) createTrapMesh(currentLevel.water, 0x3366ff);
     if (currentLevel.slope) {
@@ -205,9 +265,9 @@ export default function MinigolfGame() {
       slopeMesh.position.set(0, 0.015, slope.zStart + slopeDepth / 2);
       scene.add(slopeMesh);
     }
-    
+
     const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
-    const obstacles: { mesh: THREE.Object3D, type: string }[] = [];
+    const obstacles: { mesh: THREE.Mesh, type: string, data?: any }[] = [];
     if (currentLevel.walls) {
       currentLevel.walls.forEach((w: any) => {
         const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
@@ -220,11 +280,19 @@ export default function MinigolfGame() {
     const movingWallMeshes: THREE.Mesh[] = [];
     if (currentLevel.movingWalls) {
       currentLevel.movingWalls.forEach((w: any) => {
-        const wall = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMaterial);
-        wall.position.set(w.x, w.h / 2, w.z);
-        scene.add(wall);
-        obstacles.push({ mesh: wall, type: w.type });
-        movingWallMeshes.push(wall);
+        const geo = new THREE.BoxGeometry(w.w, w.h, w.d);
+        if (w.type === 'plank') {
+          geo.translate(0, -w.h / 2, 0);
+        }
+        const mesh = new THREE.Mesh(geo, wallMaterial);
+        if (w.pivot) {
+          mesh.position.set(w.pivot.x, w.pivot.y, w.pivot.z);
+        } else {
+          mesh.position.set(w.x, w.h / 2 + (w.y || 0), w.z);
+        }
+        scene.add(mesh);
+        obstacles.push({ mesh: mesh, type: w.type, data: w });
+        movingWallMeshes.push(mesh);
       });
     }
 
@@ -316,42 +384,77 @@ export default function MinigolfGame() {
         ball.position.add(velocityRef.current);
         let friction = currentLevel.friction;
         if (currentLevel.sandTrap) {
-            const trap = currentLevel.sandTrap;
-            if (ball.position.x > trap.xMin && ball.position.x < trap.xMax && ball.position.z > trap.zMin && ball.position.z < trap.zMax) {
-                friction = trap.friction;
-            }
+          const trap = currentLevel.sandTrap;
+          if (ball.position.x > trap.xMin && ball.position.x < trap.xMax && ball.position.z > trap.zMin && ball.position.z < trap.zMax) {
+            friction = trap.friction;
+          }
         }
         velocityRef.current.multiplyScalar(friction);
         if (currentLevel.slope) {
-            if (ball.position.z > currentLevel.slope.zStart && ball.position.z < 10) {
-                velocityRef.current.add(currentLevel.slope.force);
-            }
+          if (ball.position.z > currentLevel.slope.zStart && ball.position.z < 10) {
+            velocityRef.current.add(currentLevel.slope.force);
+          }
         }
       }
 
       if (currentLevel.movingWalls) {
         const time = Date.now();
-        currentLevel.movingWalls.forEach((wallData: any, index: number) => { const wallMesh = movingWallMeshes[index]; if (wallData.axis === 'x') { wallMesh.position.x = Math.sin(time * wallData.speed) * wallData.range; } else { wallMesh.position.z = Math.sin(time * wallData.speed) * wallData.range; } });
+        currentLevel.movingWalls.forEach((wallData: any, index: number) => {
+          const wallMesh = movingWallMeshes[index];
+          if (wallData.type === 'plank' && wallData.axis === 'z') {
+            const offset = wallData.offset || 0;
+            wallMesh.rotation.z = Math.sin(time * wallData.speed + offset) * wallData.range;
+          } else if (wallData.axis === 'x') {
+            const direction = wallData.direction || 1;
+            wallMesh.position.x = wallData.x + direction * Math.sin(time * wallData.speed) * wallData.range;
+          }
+          wallMesh.updateMatrixWorld();
+        });
       }
 
       let collisionDetectedThisFrame = false;
       obstacles.forEach(obstacle => {
-        const obstacleBox = new THREE.Box3().setFromObject(obstacle.mesh);
-        const ballBox = new THREE.Box3().setFromObject(ball);
-        if (obstacleBox.intersectsBox(ballBox)) {
-          collisionDetectedThisFrame = true;
-          if (collidingObstacle !== obstacle.mesh) {
-            if (obstacle.type === 'wall') hitSound?.play();
-            collidingObstacle = obstacle.mesh;
+        const obstacleMesh = obstacle.mesh;
+        if (obstacle.type === 'plank') {
+          const plankData = obstacle.data;
+          const inverseMatrix = obstacleMesh.matrixWorld.clone().invert();
+          const localBallPos = ball.position.clone().applyMatrix4(inverseMatrix);
+          const localPlankBox = new THREE.Box3(
+            new THREE.Vector3(-plankData.w / 2, -plankData.h, -plankData.d / 2),
+            new THREE.Vector3(plankData.w / 2, 0, plankData.d / 2)
+          );
+          const localBallSphere = new THREE.Sphere(localBallPos, BALL_RADIUS);
+          if (localPlankBox.intersectsSphere(localBallSphere)) {
+            const closestPoint = localPlankBox.clampPoint(localBallPos, new THREE.Vector3());
+            const localNormal = localBallPos.sub(closestPoint).normalize();
+            const worldNormal = localNormal.clone().transformDirection(obstacleMesh.matrixWorld);
+            velocityRef.current.reflect(worldNormal);
+            velocityRef.current.multiplyScalar(0.7);
+            ball.position.add(worldNormal.multiplyScalar(0.05));
+            collisionDetectedThisFrame = true;
+            if (collidingObstacle !== obstacleMesh) {
+              collisionSound?.play();
+              collidingObstacle = obstacleMesh;
+            }
           }
-          const overlap = ballBox.clone().intersect(obstacleBox);
-          const overlapSize = overlap.getSize(new THREE.Vector3());
-          if (overlapSize.x < overlapSize.z) {
-            velocityRef.current.x *= -0.7;
-            ball.position.x += (ball.position.x > obstacle.mesh.position.x ? 1 : -1) * overlapSize.x;
-          } else {
-            velocityRef.current.z *= -0.7;
-            ball.position.z += (ball.position.z > obstacle.mesh.position.z ? 1 : -1) * overlapSize.z;
+        } else {
+          const obstacleBox = new THREE.Box3().setFromObject(obstacleMesh);
+          const ballBox = new THREE.Box3().setFromObject(ball);
+          if (obstacleBox.intersectsBox(ballBox)) {
+            collisionDetectedThisFrame = true;
+            if (collidingObstacle !== obstacleMesh) {
+              if (obstacle.type === 'wall' || obstacle.type === 'collider') hitSound?.play();
+              collidingObstacle = obstacleMesh;
+            }
+            const overlap = ballBox.clone().intersect(obstacleBox);
+            const overlapSize = overlap.getSize(new THREE.Vector3());
+            if (overlapSize.x < overlapSize.z) {
+              velocityRef.current.x *= -0.7;
+              ball.position.x += (ball.position.x > obstacleMesh.position.x ? 1 : -1) * overlapSize.x;
+            } else {
+              velocityRef.current.z *= -0.7;
+              ball.position.z += (ball.position.z > obstacleMesh.position.z ? 1 : -1) * overlapSize.z;
+            }
           }
         }
       });
@@ -367,9 +470,13 @@ export default function MinigolfGame() {
         }
       }
 
-      if (ball.position.distanceTo(hole.position) < 0.6 && velocityRef.current.length() < 0.05) {
+      if (!levelComplete && ball.position.distanceTo(hole.position) < 0.6 && velocityRef.current.length() < 0.05) {
+        successSound?.play();
         velocityRef.current.set(0, 0, 0);
+        setLevelComplete(true);
         setGameState("success");
+        cancelAnimationFrame(animationFrameId);
+        return;
       }
       controls.update();
       renderer.render(scene, camera);
@@ -382,21 +489,42 @@ export default function MinigolfGame() {
   }, [gameState, currentLevelIndex]);
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
-      {gameState === "menu" && <LevelSelectionMenu onSelectLevel={handleLevelSelect} />}
-      {(gameState === "playing" || gameState === "success") && (
-        <>
-          <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-          <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'rgba(0, 0, 0, 0.6)', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.75rem' }}>
-            <p style={{ fontWeight: 'bold' }}>{levelData[currentLevelIndex].name}</p>
-            <p>Strokes: {strokes}</p>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', color: 'white' }}>
+      {!gameStarted ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
+          background: 'linear-gradient(to bottom right, #1e293b, #0f172a)', textAlign: 'center'
+        }}>
+          <div>
+            <h1 style={{ fontSize: '2.25rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>CloneFest 2025 Minigolf</h1>
+            <button
+              onClick={() => setGameStarted(true)}
+              style={{ padding: '0.75rem 1.5rem', backgroundColor: '#2563eb', borderRadius: '0.5rem', transition: 'background-color 0.2s' }}
+              onMouseOver={e => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+              onMouseOut={e => e.currentTarget.style.backgroundColor = '#2563eb'}
+            >
+              Start Game
+            </button>
           </div>
-          <button onClick={() => setGameState("menu")} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, padding: '0.5rem 1rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>
-            Exit
-          </button>
+        </div>
+      ) : (
+        <>
+          {gameState === "menu" && <LevelSelectionMenu onSelectLevel={handleLevelSelect} />}
+          {(gameState === "playing" || gameState === "success") && (
+            <>
+              <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+              <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'rgba(0, 0, 0, 0.6)', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.75rem' }}>
+                <p style={{ fontWeight: 'bold' }}>{levelData[currentLevelIndex].name}</p>
+                <p>Strokes: {strokes}</p>
+              </div>
+              <button onClick={() => setGameState("menu")} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, padding: '0.5rem 1rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>
+                Exit
+              </button>
+            </>
+          )}
+          {gameState === "success" && (<SuccessScreen onNextLevel={handleNextLevel} isLastLevel={currentLevelIndex === levelData.length - 1} strokes={strokes} onRetry={handleRetry} onExit={handleExit} />)}
         </>
       )}
-      {gameState === "success" && (<SuccessScreen onNextLevel={handleNextLevel} isLastLevel={currentLevelIndex === levelData.length - 1} strokes={strokes} onRetry={handleRetry} onExit={handleExit} />)}
     </div>
   );
 }
