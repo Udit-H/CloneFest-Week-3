@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { useEffect, useRef, useState } from "react";
 
 // --- LEVEL DATA ---
-// Medium and Hard levels now have sand traps and a slope.
+// The central wall from the Hard level has been removed.
 const levelData = [
   {
     name: 'Easy: The Starter',
@@ -27,30 +27,27 @@ const levelData = [
       { x: 0, z: 0, w: 0.5, h: 1, d: 15 },
     ],
     sandTrap: {
-      xMin: 2, xMax: 8,
-      zMin: -2, zMax: 2,
-      friction: 0.88,
+      xMin: 2, xMax: 8, zMin: -2, zMax: 2, friction: 0.88,
     }
   },
   {
-    name: 'Hard: The Sloped Pond',
-    ballStart: new THREE.Vector3(0, 0.4, -8),
+    name: 'Hard: The Hazard Slope',
+    ballStart: new THREE.Vector3(-8, 0.4, 8),
     holePos: new THREE.Vector3(0, 0.05, 8),
     friction: 0.95,
     walls: [
+      // Outer walls remain, but the central partition is gone.
       { x: 0, z: -10, w: 20, h: 1, d: 0.5 }, { x: 0, z: 10, w: 20, h: 1, d: 0.5 },
       { x: -10, z: 0, w: 0.5, h: 1, d: 20 }, { x: 10, z: 0, w: 0.5, h: 1, d: 20 },
-      { x: 5, z: -2.5, w: 0.5, h: 1, d: 15 }, 
-      { x: -5, z: 2.5, w: 0.5, h: 1, d: 15 },
     ],
     sandTrap: {
-      xMin: -3, xMax: 3,
-      zMin: -3, zMax: 3,
-      friction: 0.85,
+      xMin: 2, xMax: 8, zMin: -8, zMax: 0, friction: 0.88,
+    },
+    water: {
+      xMin: -8, xMax: -2, zMin: -8, zMax: 0,
     },
     slope: {
-      zStart: 3,
-      force: new THREE.Vector3(0, 0, 0.002)
+      zStart: 3, force: new THREE.Vector3(0, 0, 0.002)
     }
   },
 ];
@@ -139,13 +136,13 @@ export default function MinigolfGame() {
     const ballRef = useRef<THREE.Mesh | null>(null);
     const velocityRef = useRef(new THREE.Vector3());
 
-    const [strokes, setStrokkes] = useState(0);
+    const [strokes, setStrokes] = useState(0);
     const [gameState, setGameState] = useState("menu");
     const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
 
     const handleLevelSelect = (index: number) => {
         setCurrentLevelIndex(index);
-        setStrokkes(0);
+        setStrokes(0);
         setGameState("playing");
     };
 
@@ -182,25 +179,24 @@ export default function MinigolfGame() {
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // Add sand trap visual
-        if (currentLevel.sandTrap) {
-            const trap = currentLevel.sandTrap;
+        const createTrapMesh = (trap: any, color: number | string) => {
             const trapWidth = trap.xMax - trap.xMin;
             const trapDepth = trap.zMax - trap.zMin;
             const trapGeo = new THREE.PlaneGeometry(trapWidth, trapDepth);
-            const trapMat = new THREE.MeshStandardMaterial({ color: 0xc2b280 });
+            const trapMat = new THREE.MeshStandardMaterial({ color });
             const trapMesh = new THREE.Mesh(trapGeo, trapMat);
             trapMesh.rotation.x = -Math.PI / 2;
             trapMesh.position.set(trap.xMin + trapWidth / 2, 0.01, trap.zMin + trapDepth / 2);
             scene.add(trapMesh);
-        }
+        };
 
-        // Add slope visual
+        if (currentLevel.sandTrap) createTrapMesh(currentLevel.sandTrap, 0xc2b280);
+        if (currentLevel.water) createTrapMesh(currentLevel.water, 0x3366ff);
         if (currentLevel.slope) {
             const slope = currentLevel.slope;
-            const slopeDepth = 10 - slope.zStart; // Assuming slope goes to the end
-            const slopeGeo = new THREE.PlaneGeometry(19, slopeDepth);
-            const slopeMat = new THREE.MeshStandardMaterial({ color: 0x2e4b09 }); // Darker green
+            const slopeDepth = 10 - slope.zStart;
+            const slopeGeo = new THREE.PlaneGeometry(20, slopeDepth); // Make it full width
+            const slopeMat = new THREE.MeshStandardMaterial({ color: 0x2e4b09 });
             const slopeMesh = new THREE.Mesh(slopeGeo, slopeMat);
             slopeMesh.rotation.x = -Math.PI / 2;
             slopeMesh.position.set(0, 0.015, slope.zStart + slopeDepth / 2);
@@ -281,7 +277,7 @@ export default function MinigolfGame() {
             const dragEnd = new THREE.Vector2(e.clientX, e.clientY);
             const dragVector = new THREE.Vector2().subVectors(dragStart, dragEnd);
             velocityRef.current.set(dragVector.x * 0.006, 0, dragVector.y * 0.006);
-            setStrokkes((s) => s + 1);
+            setStrokes((s) => s + 1);
         }
 
         renderer.domElement.addEventListener("mousedown", onMouseDown);
@@ -291,11 +287,19 @@ export default function MinigolfGame() {
         let animationFrameId: number;
         function animate() {
             animationFrameId = requestAnimationFrame(animate);
-            ball.position.add(velocityRef.current);
+            
+            if (currentLevel.water) {
+                const water = currentLevel.water;
+                if (ball.position.x > water.xMin && ball.position.x < water.xMax && ball.position.z > water.zMin && ball.position.z < water.zMax) {
+                    ball.position.copy(currentLevel.ballStart);
+                    velocityRef.current.set(0, 0, 0);
+                    setStrokes(s => s + 1);
+                }
+            }
 
-            // --- Updated Physics Logic ---
+            ball.position.add(velocityRef.current);
+            
             let friction = currentLevel.friction;
-            // Check for sand trap
             if (currentLevel.sandTrap) {
                 const trap = currentLevel.sandTrap;
                 if (ball.position.x > trap.xMin && ball.position.x < trap.xMax && ball.position.z > trap.zMin && ball.position.z < trap.zMax) {
@@ -304,11 +308,9 @@ export default function MinigolfGame() {
             }
             velocityRef.current.multiplyScalar(friction);
 
-            // Check for slope
-            if (currentLevel.slope && ball.position.z > currentLevel.slope.zStart) {
+            if (currentLevel.slope && ball.position.z > currentLevel.slope.zStart && ball.position.z < 10) {
                 velocityRef.current.add(currentLevel.slope.force);
             }
-            // --- End Updated Physics Logic ---
 
             walls.forEach(wall => {
                 const wallBox = new THREE.Box3().setFromObject(wall);
@@ -326,6 +328,16 @@ export default function MinigolfGame() {
                     }
                 }
             });
+
+            const limit = 9.5;
+            if (ball.position.x < -limit || ball.position.x > limit) {
+                velocityRef.current.x *= -0.7;
+                ball.position.x = THREE.MathUtils.clamp(ball.position.x, -limit, limit);
+            }
+            if (ball.position.z < -limit || ball.position.z > limit) {
+                velocityRef.current.z *= -0.7;
+                ball.position.z = THREE.MathUtils.clamp(ball.position.z, -limit, limit);
+            }
 
             if (ball.position.distanceTo(hole.position) < 0.6 && velocityRef.current.length() < 0.05) {
                 velocityRef.current.set(0, 0, 0);
