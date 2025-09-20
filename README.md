@@ -3,7 +3,6 @@
 ### 🎮 Game Overview
 
 Vector Golf is a browser-based 3D mini-golf game built using Three.js and TypeScript.
-
 The game allows players to aim, adjust shot power, and putt a golf ball through multiple holes with realistic physics, scoring, and smooth camera controls. This project brings together game design, physics simulation, and web technologies to deliver a fun and interactive mini-golf experience directly in your browser.
 
 ### ✨ Features
