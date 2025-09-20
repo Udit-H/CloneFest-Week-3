@@ -126,34 +126,67 @@ interface SuccessScreenProps { strokes: number; par: number; onNextLevel: () => 
 // --- UI COMPONENTS ---
 
 const Auth: FC<AuthProps> = ({ onLoginSuccess }) => {
-    // This component is unchanged
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isSignUp, setIsSignUp] = useState(false);
+    const [message, setMessage] = useState(''); // <--- ADD THIS LINE
+
     const handleLogin = async (event: FormEvent) => {
         event.preventDefault();
         setLoading(true);
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) alert("Login Failed: " + error.message);
-        else onLoginSuccess();
         setLoading(false);
+        if (error) {
+            setMessage("Login Failed: " + error.message);
+        } else {
+            onLoginSuccess();
+        }
     };
+
+    const handleSignUp = async (event: FormEvent) => {
+        event.preventDefault();
+        setLoading(true);
+        const { error } = await supabase.auth.signUp({ email, password });
+        setLoading(false);
+        if (error) {
+            setMessage("Sign Up Failed: " + error.message);
+        } else {
+            setMessage('Confirmation email sent! Please check your inbox.'); // <--- CHANGE THIS LINE
+            setIsSignUp(false);
+            setEmail('');
+            setPassword('');
+        }
+    };
+
     return (
         <div className="menu-container">
-            <form className="auth-box" onSubmit={handleLogin}>
+            <form className="auth-box" onSubmit={isSignUp ? handleSignUp : handleLogin}>
                 <h1>CloneFest Minigolf</h1>
+                {message && <p className="message">{message}</p>} {/* <--- ADD THIS LINE */}
                 <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <button type="submit" disabled={loading}>{loading ? 'Logging In...' : 'Login'}</button>
+                <button type="submit" disabled={loading}>
+                    {loading ? (isSignUp ? 'Creating...' : 'Logging In...') : (isSignUp ? 'Create Account' : 'Login')}
+                </button>
             </form>
+            <div className="button-group">
+                <button onClick={() => setIsSignUp(!isSignUp)} className="toggle-btn" disabled={loading}>
+                    {isSignUp ? 'Back to Login' : 'Create an Account'}
+                </button>
+            </div>
             <style jsx>{`
                 .menu-container { display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(to bottom right, #1e293b, #0f172a); color: white; }
                 .auth-box { text-align: center; background-color: rgba(0,0,0,0.3); padding: 2.5rem; border-radius: 1rem; display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 400px; }
                 h1 { font-size: 2.5rem; font-weight: bold; margin-bottom: 1rem; }
+                .message { color: yellow; font-size: 1rem; margin-top: -0.5rem; } // <--- ADD THIS LINE
                 input { padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #475569; background-color: #1e293b; color: white; font-size: 1rem; }
                 button { padding: 0.75rem 1rem; background-color: #2563eb; border-radius: 0.5rem; transition: background-color 0.2s; border: none; cursor: pointer; font-size: 1.1rem; font-weight: bold; color: white; margin-top: 0.5rem; }
                 button:hover { background-color: #1d4ed8; }
                 button:disabled { background-color: #94a3b8; cursor: not-allowed; }
+                .button-group { margin-top: 1rem; }
+                .toggle-btn { background: none; border: none; text-decoration: underline; font-weight: normal; font-size: 1rem; color: #94a3b8; cursor: pointer; }
+                .toggle-btn:hover { color: white; }
             `}</style>
         </div>
     );
