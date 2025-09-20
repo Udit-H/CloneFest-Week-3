@@ -193,9 +193,10 @@ const Auth: FC<AuthProps> = ({ onLoginSuccess }) => {
 };
 
 const Leaderboard: FC<LeaderboardProps> = ({ onPlay, onLogout }) => {
-    // This component is unchanged
     const [scores, setScores] = useState<{ Username: string, total_points: number }[]>([]);
     const [loading, setLoading] = useState(true);
+    const mountRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         const fetchScores = async () => {
             setLoading(true);
@@ -206,43 +207,109 @@ const Leaderboard: FC<LeaderboardProps> = ({ onPlay, onLogout }) => {
         };
         fetchScores();
     }, []);
+
+    useEffect(() => {
+        if (!mountRef.current) return;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 4, 10);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        mountRef.current.innerHTML = "";
+        mountRef.current.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(5, 10, 7);
+        scene.add(dirLight);
+
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(25, 25), new THREE.MeshStandardMaterial({ color: 0x3a5f0b }));
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+        const water = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshStandardMaterial({ color: 0x3366ff }));
+        water.rotation.x = -Math.PI / 2;
+        water.position.set(6, 0.01, 2);
+        scene.add(water);
+        const sand = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshStandardMaterial({ color: 0xc2b280 }));
+        sand.rotation.x = -Math.PI / 2;
+        sand.position.set(-6, 0.01, -2);
+        scene.add(sand);
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+        const slidingWall = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 0.5), wallMaterial);
+        slidingWall.position.set(0, 0.5, -4);
+        scene.add(slidingWall);
+        const plankGeo = new THREE.BoxGeometry(0.4, 3, 0.4);
+        plankGeo.translate(0, -1.5, 0);
+        const plank = new THREE.Mesh(plankGeo, wallMaterial);
+        plank.position.set(0, 3, 4);
+        scene.add(plank);
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        ball.position.set(0, 0.4, 0);
+        scene.add(ball);
+
+        const handleResize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+        window.addEventListener('resize', handleResize);
+
+        let animationFrameId: number;
+        function animate() {
+            animationFrameId = requestAnimationFrame(animate);
+            const time = Date.now();
+            slidingWall.position.x = Math.sin(time * 0.001) * 4;
+            plank.rotation.z = Math.sin(time * 0.002) * (Math.PI / 4);
+            ball.position.z = Math.sin(time * 0.0005) * 6;
+            renderer.render(scene, camera);
+        }
+        animate();
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            cancelAnimationFrame(animationFrameId);
+            if (renderer.domElement) {
+                renderer.dispose();
+            }
+        };
+    }, []);
+
     return (
-        <div className="menu-container">
-            <div className="leaderboard-box">
-                <h1>Leaderboard</h1>
-                {loading ? <p>Loading Scores...</p> : (
-                    <table>
-                        <thead><tr><th>Player</th><th>Total Points</th></tr></thead>
-                        <tbody>
-                            {scores.map((score, index) => (
-                                <tr key={index}>
-                                    <td>{score.Username}</td>
-                                    <td>{score.total_points}</td>
+        <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+            <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}></div>
+            <div style={{
+                position: 'absolute', top: '2rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
+                backgroundColor: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(8px)',
+                padding: '1rem 2rem', borderRadius: '1rem', textAlign: 'center',
+                width: '90%', maxWidth: '700px', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'white'
+            }}>
+                <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Leaderboard</h1>
+                <div style={{ maxHeight: '40vh', overflowY: 'auto', marginBottom: '1rem' }}>
+                    {loading ? <p>Loading Scores...</p> : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ borderBottom: '2px solid #475569', fontSize: '1rem', padding: '0.5rem 1rem' }}>Rank</th>
+                                    <th style={{ borderBottom: '2px solid #475569', fontSize: '1rem', padding: '0.5rem 1rem' }}>Player</th>
+                                    <th style={{ borderBottom: '2px solid #475569', fontSize: '1rem', padding: '0.5rem 1rem' }}>Total Points</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-                <div className="button-group">
-                    <button onClick={onPlay}>Play Game</button>
-                    <button onClick={onLogout} className="logout-btn">Logout</button>
+                            </thead>
+                            <tbody>
+                                {scores.map((score, index) => (
+                                    <tr key={index} style={{ backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.05)' }}>
+                                        <td style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>{index + 1}</td>
+                                        <td style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>{score.Username}</td>
+                                        <td style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>{score.total_points}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                    <button onClick={onPlay} style={{ padding: '0.5rem 1.5rem', backgroundColor: '#2563eb', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', color: 'white' }}>Play Game</button>
+                    <button onClick={onLogout} style={{ padding: '0.5rem 1.5rem', backgroundColor: '#94a3b8', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', color: 'white' }}>Logout</button>
                 </div>
             </div>
-            <style jsx>{`
-                .menu-container { display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(to bottom right, #1e293b, #0f172a); color: white; }
-                .leaderboard-box { background-color: rgba(0,0,0,0.3); padding: 2rem 3rem; border-radius: 1rem; text-align: center; min-width: 400px; max-height: 90vh; overflow-y: auto;}
-                h1 { font-size: 2.5rem; margin-bottom: 1.5rem; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
-                th, td { padding: 0.75rem; text-align: center; }
-                th { border-bottom: 2px solid #475569; font-size: 1.1rem; }
-                td { font-size: 1rem; }
-                tbody tr:nth-child(even) { background-color: rgba(255,255,255,0.05); }
-                .button-group { display: flex; gap: 1rem; justify-content: center; }
-                button { padding: 1rem 2rem; background-color: #2563eb; border-radius: 0.5rem; transition: background-color 0.2s; border: none; cursor: pointer; font-size: 1.25rem; font-weight: bold; color: white; }
-                button:hover { background-color: #1d4ed8; }
-                .logout-btn { background-color: #94a3b8; }
-                .logout-btn:hover { background-color: #64748b; }
-            `}</style>
         </div>
     );
 };
@@ -319,7 +386,7 @@ const Game: FC<GameProps> = ({ username, onExitToLeaderboard }) => {
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xbfd1e5);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
+
         camera.position.set(0, 8, 14);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -379,7 +446,7 @@ const Game: FC<GameProps> = ({ username, onExitToLeaderboard }) => {
             rampMesh.rotation.x = -Math.PI / 2;
             scene.add(rampMesh);
         });
-        
+
         const createTrapMesh = (trap: any, color: any, y: number = 0.01) => {
             const trapMesh = new THREE.Mesh(new THREE.PlaneGeometry(trap.xMax - trap.xMin, trap.zMax - trap.zMin), new THREE.MeshStandardMaterial({ color }));
             trapMesh.rotation.x = -Math.PI / 2;
@@ -417,7 +484,7 @@ const Game: FC<GameProps> = ({ username, onExitToLeaderboard }) => {
         const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x000000 }));
         hole.position.copy(currentLevel.holePos);
         scene.add(hole);
-        
+
         const flagpole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 8), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
         flagpole.position.copy(currentLevel.holePos).add(new THREE.Vector3(0, 1.5, 0));
         scene.add(flagpole);
@@ -442,7 +509,7 @@ const Game: FC<GameProps> = ({ username, onExitToLeaderboard }) => {
         let isDragging = false;
         const dragStart = new THREE.Vector2();
         const onMouseDown = (e: MouseEvent) => { if (velocityRef.current.lengthSq() < 0.001) { isDragging = true; controls.enabled = false; dragStart.set(e.clientX, e.clientY); } };
-        
+
         const onMouseMove = (e: MouseEvent) => {
             if (!isDragging) return;
             const dragEnd = new THREE.Vector2(e.clientX, e.clientY);
@@ -478,7 +545,7 @@ const Game: FC<GameProps> = ({ username, onExitToLeaderboard }) => {
         let animationFrameId: number;
         function animate() {
             animationFrameId = requestAnimationFrame(animate);
-            
+
             // --- FIX: ALWAYS UPDATE CONTROLS IN THE ANIMATION LOOP ---
             controls.update();
 
@@ -597,16 +664,28 @@ const Game: FC<GameProps> = ({ username, onExitToLeaderboard }) => {
             `}</style>
         </div>
     );
-    
+
     return (
         <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
             {gameState === 'menu' && <LevelSelectionMenu onSelectLevel={handleLevelSelect} />}
             {(gameState === 'playing' || gameState === 'success') && (
                 <>
                     <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-                    <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: 'rgba(0, 0, 0, 0.6)', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.75rem' }}>
-                        <p style={{ fontWeight: 'bold', margin: 0 }}>{levelData[currentLevelIndex].name}</p>
-                        <p style={{ margin: 0 }}>Strokes: {strokes} | Par: {levelData[currentLevelIndex].par}</p>
+                    <div style={{
+                        position: 'absolute', top: '1rem', left: '1rem',
+                        background: 'rgba(0, 0, 0, 0.7)',
+                        color: 'white',
+                        padding: '0.75rem 1.25rem',
+                        borderRadius: '0.75rem',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.2)'
+                    }}>
+                        <p style={{ fontWeight: 'bold', margin: 0, fontSize: '1.1rem' }}>{levelData[currentLevelIndex].name}</p>
+                        <p style={{ margin: '0.25rem 0' }}>Strokes: {strokes} | Par: {levelData[currentLevelIndex].par}</p>
+                        {currentLevelIndex === 0 && (
+                            <p style={{ margin: 0, marginTop: '0.5rem', fontSize: '0.8rem', opacity: 0.8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '0.5rem' }}>
+                                Left Click: Rotate | Right Click: Pan | Scroll: Zoom
+                            </p>
+                        )}
                     </div>
                     <button onClick={onExitToLeaderboard} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, padding: '0.5rem 1rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}>
                         Exit to Menu
@@ -647,7 +726,7 @@ export default function MinigolfPage() {
 
         return () => subscription.unsubscribe();
     }, []);
-    
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setView('auth');
