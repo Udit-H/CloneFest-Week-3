@@ -255,7 +255,7 @@ export default function MinigolfGame() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xbfd1e5);
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 15, 25);
+    camera.position.set(0, 8, 14);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     mountRef.current.innerHTML = "";
