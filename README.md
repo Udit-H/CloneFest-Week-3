@@ -24,8 +24,6 @@ The game allows players to aim, adjust shot power, and putt a golf ball through 
 
 * **⛰️ Complex Terrain** – Face a variety of challenging environments, including steep ramps, gentle slopes, and curved surfaces.
 
-* **☁️ Persistent score** - Securely saves your progress using Firebase to track your total score and rank you on a global leaderboard.
-
 * **🎵 Sound effects** - Enhances the gameplay experience with dynamic sound effects, realistic physics, and polished graphics.
 
 ---
